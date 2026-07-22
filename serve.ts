@@ -1,27 +1,23 @@
-// Production server for the built site. The TanStack Start build emits a portable
-// fetch handler (dist/server/server.js) plus static client assets (dist/client);
-// this wraps them in a Bun server on port 3000 — static files first, SSR for the
-// rest. Run `bun run build` before starting. Restart it with `bun run publish`.
-//
-// Starting a new instance supersedes the old one: it frees the port no matter
-// which user owns the current server (provisioning starts it as `engine`; a team
-// member's `bun run publish` runs as their own user), so publish never collides
-// with an already-running server. Every sandbox user has passwordless sudo, so
-// the takeover works across user boundaries.
-import handler from "./dist/server/server.js";
-
-// Pinned, NOT read from the environment. The published preview URL
-// (<label>.<PUBLIC_SITE_DOMAIN>) is reverse-proxied to 0.0.0.0:3000 inside the
-// sandbox, so the default site MUST bind there. Bun auto-loads .env files, so
-// honouring process.env.PORT/HOST would let a stray env var or a .env in the site
-// dir silently move the site off :3000 (or onto loopback) and break the public URL.
+// Production server for the dashboard site.
+// Serves static dashboard files and proxies /api to the API server on port 3001.
 const PORT = 3000;
 const HOST = "0.0.0.0";
-const CLIENT_DIR = `${import.meta.dir}/dist/client`;
+const CLIENT_DIR = `${import.meta.dir}/packages/dashboard/dist`;
 
-// Free PORT regardless of which user owns the current listener. lsof runs under
-// sudo so it can see (and the kill can signal) a process owned by another user;
-// the loop waits for the socket to actually release before we bind.
+const STATIC_TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "application/javascript",
+  ".css": "text/css",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".json": "application/json",
+};
+
+// Free PORT regardless of which user owns the current listener.
 const freePort =
   `for _ in $(seq 1 25); do ` +
   `pids=$(lsof -t -iTCP:${String(PORT)} -sTCP:LISTEN 2>/dev/null || true); ` +
@@ -29,10 +25,6 @@ const freePort =
   `kill $pids 2>/dev/null || true; sleep 0.2; ` +
   `done`;
 
-// Take over the port, re-freeing and retrying if another publish grabbed it in the
-// gap between freeing and binding (last publish wins). Bun.serve throws EADDRINUSE
-// synchronously, so without this a raced publish would die while the shell already
-// reported success.
 for (let attempt = 1; ; attempt++) {
   await Bun.$`sudo sh -c ${freePort}`.quiet().nothrow();
   try {
@@ -40,14 +32,42 @@ for (let attempt = 1; ; attempt++) {
       port: PORT,
       hostname: HOST,
       async fetch(req) {
-        const { pathname } = new URL(req.url);
-        if (pathname !== "/") {
-          const file = Bun.file(CLIENT_DIR + pathname);
-          if (await file.exists()) return new Response(file);
+        const url = new URL(req.url);
+        const { pathname } = url;
+
+        // Proxy /api to the API server
+        if (pathname.startsWith("/api")) {
+          try {
+            const apiRes = await fetch(`http://127.0.0.1:3001${pathname}${url.search}`, {
+              method: req.method,
+              headers: req.headers,
+              body: req.method !== "GET" && req.method !== "HEAD" ? await req.text() : undefined,
+            });
+            return apiRes;
+          } catch {
+            return new Response("API unavailable", { status: 502 });
+          }
         }
-        return (
-          handler as { fetch: (r: Request) => Response | Promise<Response> }
-        ).fetch(req);
+
+        // Serve static files with correct MIME types
+        const ext = pathname.includes(".") ? pathname.slice(pathname.lastIndexOf(".")) : "";
+        if (STATIC_TYPES[ext]) {
+          const file = Bun.file(CLIENT_DIR + pathname);
+          if (await file.exists()) {
+            return new Response(file, {
+              headers: { "Content-Type": STATIC_TYPES[ext] },
+            });
+          }
+        }
+
+        // SPA fallback — serve index.html
+        const indexFile = Bun.file(CLIENT_DIR + "/index.html");
+        if (await indexFile.exists()) {
+          return new Response(indexFile, {
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          });
+        }
+        return new Response("Not found", { status: 404 });
       },
     });
     break;
@@ -57,4 +77,4 @@ for (let attempt = 1; ; attempt++) {
   }
 }
 
-console.log(`team-site serving on http://${HOST}:${String(PORT)}`);
+console.log(`LeadGuard serving on http://${HOST}:${String(PORT)}`);
