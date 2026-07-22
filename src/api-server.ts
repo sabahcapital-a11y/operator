@@ -208,6 +208,102 @@ const routes: { pattern: RegExp; get?: (params: Record<string, string>, req: Req
     },
   },
   {
+    pattern: /^\/api\/clients\/([^/]+)\/documents\/gaps$/,
+    get: async (params) => {
+      const clientId = Number(params.id);
+      const client = db.query("SELECT id FROM clients WHERE id = ?").get(clientId) as any;
+      if (!client) return json({ error: "Client not found" }, 404);
+
+      // Get all distinct months from revenue entries
+      const revMonths = db.query(
+        "SELECT DISTINCT strftime('%Y-%m', entry_date) AS month_period FROM revenue_entries WHERE client_id = ? ORDER BY month_period"
+      ).all(clientId) as { month_period: string }[];
+
+      // Get all distinct months from documents
+      const docMonths = db.query(
+        "SELECT DISTINCT month_period FROM documents WHERE client_id = ? AND month_period IS NOT NULL"
+      ).all(clientId) as { month_period: string }[];
+
+      const docMonthSet = new Set(docMonths.map((d) => d.month_period));
+
+      // Find months with revenue but no documents
+      const gaps = revMonths
+        .filter((r) => !docMonthSet.has(r.month_period))
+        .map((r) => ({ month_period: r.month_period, has_revenue: true, has_documents: false }));
+
+      // Also scan all months from earliest revenue to now for completeness
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+      return json({ gaps, total_revenue_months: revMonths.length, documented_months: docMonths.length, current_month: currentMonth });
+    },
+  },
+  {
+    pattern: /^\/api\/clients\/([^/]+)\/documents$/,
+    get: async (params, req) => {
+      const clientId = Number(params.id);
+      const client = db.query("SELECT id FROM clients WHERE id = ?").get(clientId) as any;
+      if (!client) return json({ error: "Client not found" }, 404);
+
+      const url = new URL(req.url);
+      const monthFilter = url.searchParams.get("month_period");
+
+      let rows;
+      if (monthFilter) {
+        rows = db.query(
+          "SELECT * FROM documents WHERE client_id = ? AND month_period = ? ORDER BY uploaded_at DESC"
+        ).all(clientId, monthFilter);
+      } else {
+        rows = db.query(
+          "SELECT * FROM documents WHERE client_id = ? ORDER BY uploaded_at DESC"
+        ).all(clientId);
+      }
+      return json(rows);
+    },
+    post: async (params, req) => {
+      const clientId = Number(params.id);
+      const client = db.query("SELECT id FROM clients WHERE id = ?").get(clientId) as any;
+      if (!client) return json({ error: "Client not found" }, 404);
+
+      const formData = await req.formData();
+      const file = formData.get("file") as File | null;
+      const category = (formData.get("category") as string) || "other";
+      const monthPeriod = (formData.get("month_period") as string) || "";
+
+      if (!file) return json({ error: "No file provided" }, 400);
+      if (!monthPeriod) return json({ error: "month_period is required" }, 400);
+
+      const validCategories = ["invoice", "receipt", "bank_statement", "other"];
+      if (!validCategories.includes(category)) return json({ error: "Invalid category" }, 400);
+
+      // Validate month_period format (YYYY-MM)
+      if (!/^\d{4}-\d{2}$/.test(monthPeriod)) return json({ error: "month_period must be YYYY-MM format" }, 400);
+
+      const uploadDir = `uploads/${clientId}/${monthPeriod}`;
+      await Bun.write(uploadDir + "/.keep", ""); // ensure dir exists
+      const filePath = `${uploadDir}/${file.name}`;
+
+      await Bun.write(filePath, file);
+
+      const r = db.run(
+        `INSERT INTO documents (client_id, filename, category, month_period) VALUES (?, ?, ?, ?)`,
+        [clientId, file.name, category, monthPeriod]
+      );
+
+      const doc = db.query("SELECT * FROM documents WHERE id = ?").get(Number(r.lastInsertRowid));
+      return json(doc, 201);
+    },
+  },
+  {
+    pattern: /^\/api\/documents\/(.+)$/,
+    get: async (params) => {
+      const filePath = `uploads/${params.filename}`;
+      const file = Bun.file(filePath);
+      if (!(await file.exists())) return json({ error: "File not found" }, 404);
+      return new Response(file);
+    },
+  },
+  {
     pattern: /^\/api\/revenue$/,
     post: async (_, req) => {
       const body = await req.json();
@@ -230,7 +326,14 @@ const server = Bun.serve({
       const m = url.pathname.match(route.pattern);
       if (!m) continue;
       const params: Record<string, string> = {};
-      if (m.length > 1 && route.pattern.source.includes("([^/]+)")) params["id"] = m[1];
+      // Determine param name from pattern: use "filename" for /api/documents/... route, "id" for all others
+      if (m.length > 1) {
+        if (route.pattern.source.includes("api\\/documents\\/")) {
+          params["filename"] = m[1];
+        } else {
+          params["id"] = m[1];
+        }
+      }
       const method = req.method.toUpperCase();
       try {
         if (method === "GET" && route.get) return await route.get(params, req);

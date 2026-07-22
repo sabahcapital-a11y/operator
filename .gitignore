@@ -23,3 +23,4 @@ threshold.db
 threshold.db-shm
 threshold.db-wal
 node_modules/.vite-temp
+uploads/
