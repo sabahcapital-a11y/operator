@@ -118,7 +118,7 @@ async function handleRegister(req: Request): Promise<Response> {
   if (existing.length > 0) return error("An account with this email already exists", 409);
 
   const hash = await bcrypt.hash(password, 10);
-  const trialEnd = new Date(Date.now() + 14 * 86400000);
+  const trialEnd = new Date(Date.now() + 7 * 86400000);
 
   const [agency] = await db.insert(agencies).values({
     name,
@@ -407,7 +407,7 @@ async function handleCreateCheckout(agencyId: string, req: Request): Promise<Res
     customer: customerId,
     mode: "subscription",
     line_items: [{ price: priceId, quantity: 1 }],
-    subscription_data: { trial_period_days: 14 },
+    subscription_data: { trial_period_days: 7 },
     success_url: `${req.headers.get("origin") || "http://localhost:3000"}/dashboard?checkout=success`,
     cancel_url: `${req.headers.get("origin") || "http://localhost:3000"}/settings?checkout=cancelled`,
   });
