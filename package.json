@@ -12,6 +12,7 @@
     "db:studio": "bun run --cwd packages/db studio",
     "runner": "bun run --cwd packages/runner start",
     "scheduler": "bun run --cwd packages/scheduler start",
+    "triage": "bun run --cwd packages/triage start",
     "sample:seed": "bun run --cwd packages/db seed",
     "onboard": "bun run --cwd packages/onboard start"
   },

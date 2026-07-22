@@ -9,6 +9,13 @@
         "typescript": "^5.7.0",
       },
     },
+    "packages/alerts": {
+      "name": "@leadguard/alerts",
+      "version": "0.1.0",
+      "dependencies": {
+        "@leadguard/db": "workspace:*",
+      },
+    },
     "packages/db": {
       "name": "@leadguard/db",
       "version": "0.1.0",
@@ -42,6 +49,14 @@
       "dependencies": {
         "@leadguard/db": "workspace:*",
         "croner": "^9.0.0",
+      },
+    },
+    "packages/triage": {
+      "name": "@leadguard/triage",
+      "version": "0.1.0",
+      "dependencies": {
+        "@leadguard/alerts": "workspace:*",
+        "@leadguard/db": "workspace:*",
       },
     },
   },
@@ -104,6 +119,8 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
 
+    "@leadguard/alerts": ["@leadguard/alerts@workspace:packages/alerts"],
+
     "@leadguard/db": ["@leadguard/db@workspace:packages/db"],
 
     "@leadguard/onboard": ["@leadguard/onboard@workspace:packages/onboard"],
@@ -111,6 +128,8 @@
     "@leadguard/runner": ["@leadguard/runner@workspace:packages/runner"],
 
     "@leadguard/scheduler": ["@leadguard/scheduler@workspace:packages/scheduler"],
+
+    "@leadguard/triage": ["@leadguard/triage@workspace:packages/triage"],
 
     "@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
 

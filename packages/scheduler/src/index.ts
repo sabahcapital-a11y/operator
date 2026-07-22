@@ -3,6 +3,7 @@
  *
  * Polls the database for journeys due for a run and spawns the runner.
  * Respects a concurrency limit (max concurrent Playwright instances).
+ * After a runner fails (exit code 1), automatically spawns the triage agent.
  *
  * Usage:
  *   DATABASE_URL=... bun run src/index.ts
@@ -15,7 +16,7 @@
 import { Cron } from "croner";
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
-import { getDb, journeys, runs, eq, and, lte, sql } from "@leadguard/db";
+import { getDb, journeys, runs, eq, and, lte } from "@leadguard/db";
 
 const POLL_INTERVAL_SECONDS = parseInt(
   process.env.POLL_INTERVAL_SECONDS || "30",
@@ -28,7 +29,65 @@ const RUNNER_PATH = resolve(
   "../../runner/src/index.ts"
 );
 
+const TRIAGE_PATH = resolve(
+  import.meta.dir,
+  "../../triage/src/index.ts"
+);
+
 let activeRuns = 0;
+
+/**
+ * Spawn the triage agent for a failed run.
+ */
+function spawnTriage(runId: string) {
+  console.log(`[scheduler] Spawning triage for failed run ${runId}`);
+
+  const child = spawn(
+    "bun",
+    ["run", TRIAGE_PATH, "--run-id", runId],
+    {
+      stdio: "pipe",
+      env: { ...process.env },
+    }
+  );
+
+  let stdout = "";
+  let stderr = "";
+
+  child.stdout.on("data", (data: Buffer) => {
+    stdout += data.toString();
+  });
+
+  child.stderr.on("data", (data: Buffer) => {
+    stderr += data.toString();
+  });
+
+  child.on("close", (code: number | null) => {
+    console.log(
+      `[scheduler] Triage for run ${runId} completed (exit ${code})`
+    );
+    if (stderr.trim()) {
+      console.log(`[scheduler] Triage stderr: ${stderr.trim().slice(0, 500)}`);
+    }
+    if (stdout.trim()) {
+      // Log a condensed version of triage output
+      const lines = stdout.trim().split("\n");
+      const keyLines = lines.filter(
+        (l) =>
+          l.includes("[triage] Classification:") ||
+          l.includes("[triage] Diagnosis:") ||
+          l.includes("[alerts]")
+      );
+      for (const line of keyLines) {
+        console.log(`  ${line.trim()}`);
+      }
+    }
+  });
+
+  child.on("error", (err: Error) => {
+    console.error(`[scheduler] Failed to spawn triage: ${err.message}`);
+  });
+}
 
 async function poll() {
   if (activeRuns >= MAX_CONCURRENCY) {
@@ -99,6 +158,26 @@ async function poll() {
         if (stderr.trim()) {
           console.log(`[scheduler] stderr: ${stderr.trim().slice(0, 500)}`);
         }
+
+        // ── Triage hook: spawn triage agent on failure ────────────────
+        if (code === 1) {
+          // Extract run ID from runner stdout
+          let runId: string | null = null;
+          for (const line of stdout.split("\n")) {
+            if (line.includes("[runner] Run ID:")) {
+              runId = line.split("Run ID:")[1]?.trim() ?? null;
+              break;
+            }
+          }
+
+          if (runId) {
+            spawnTriage(runId);
+          } else {
+            console.log(
+              `[scheduler] Could not extract run ID from runner output — skipping triage`
+            );
+          }
+        }
       });
 
       child.on("error", (err: Error) => {
@@ -116,6 +195,7 @@ async function poll() {
 console.log("[scheduler] LeadGuard Scheduler starting");
 console.log(`[scheduler] Poll interval: ${POLL_INTERVAL_SECONDS}s`);
 console.log(`[scheduler] Max concurrency: ${MAX_CONCURRENCY}`);
+console.log(`[scheduler] Triage enabled: runs with exit code 1 will be triaged`);
 
 // Use croner for the polling loop
 const cronExpr = POLL_INTERVAL_SECONDS >= 60
