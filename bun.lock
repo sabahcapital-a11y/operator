@@ -35,6 +35,13 @@
         "playwright": "^1.61.0",
       },
     },
+    "packages/reports": {
+      "name": "@leadguard/reports",
+      "version": "0.1.0",
+      "dependencies": {
+        "@leadguard/db": "workspace:*",
+      },
+    },
     "packages/runner": {
       "name": "@leadguard/runner",
       "version": "0.1.0",
@@ -124,6 +131,8 @@
     "@leadguard/db": ["@leadguard/db@workspace:packages/db"],
 
     "@leadguard/onboard": ["@leadguard/onboard@workspace:packages/onboard"],
+
+    "@leadguard/reports": ["@leadguard/reports@workspace:packages/reports"],
 
     "@leadguard/runner": ["@leadguard/runner@workspace:packages/runner"],
 
