@@ -14,6 +14,7 @@
 
 import { parseArgs } from "util";
 import { resolve } from "node:path";
+import { spawn } from "node:child_process";
 import { getDb, runs, journeys, eq } from "@leadguard/db";
 import { classifyFailure, type TriageResult } from "./classifier";
 import { generateDiagnosis } from "./diagnoser";
@@ -27,6 +28,54 @@ const RUNNER_PATH = resolve(
   import.meta.dir,
   "../../runner/src/index.ts"
 );
+const REPAIR_PATH = resolve(
+  import.meta.dir,
+  "../../repair/src/index.ts"
+);
+
+/**
+ * Spawn the repair agent as a child process.
+ * On success (exit 0), the journey has been repaired and the incident is closed.
+ * On failure (exit 1), the journey needs human review.
+ */
+function triggerRepair(journeyId: string): Promise<{ success: boolean; log: string }> {
+  return new Promise((resolve) => {
+    console.log(`[triage] Spawning repair agent for journey ${journeyId}...`);
+
+    const child = spawn("bun", ["run", REPAIR_PATH, "--journey-id", journeyId], {
+      stdio: "pipe",
+      env: { ...process.env },
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (data: Buffer) => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on("data", (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    child.on("close", (code) => {
+      const output = stdout + stderr;
+      if (code === 0) {
+        console.log(`[triage] Repair agent succeeded — journey updated`);
+        resolve({ success: true, log: output });
+      } else {
+        console.log(`[triage] Repair agent failed (exit ${code}) — human review needed`);
+        console.log(`[triage] Repair output: ${output.slice(0, 500)}`);
+        resolve({ success: false, log: output });
+      }
+    });
+
+    child.on("error", (err) => {
+      console.error(`[triage] Failed to spawn repair agent: ${err.message}`);
+      resolve({ success: false, log: err.message });
+    });
+  });
+}
 
 async function main() {
   const { values } = parseArgs({
@@ -117,8 +166,8 @@ async function main() {
     console.log(`[triage] Real failure confirmed — dispatching alert`);
     await dispatchAlert(db, run, journey, diagnosis, triageResult.classification);
   } else if (triageResult.classification === "test_stale") {
-    console.log(`[triage] Test stale — queueing for repair agent (Phase 6)`);
-    // Phase 6 repair agent hook will go here
+    console.log(`[triage] Test stale — triggering repair agent`);
+    await triggerRepair(journey.id);
   } else {
     console.log(`[triage] Transient flake — no alert needed`);
   }

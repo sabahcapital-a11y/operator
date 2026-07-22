@@ -19,6 +19,7 @@
     "sample:seed": "bun run --cwd packages/db seed",
     "onboard": "bun run --cwd packages/onboard start",
     "reports": "bun run --cwd packages/reports start",
+    "repair": "bun run --cwd packages/repair start",
     "publish": "bun run build && bun run serve.ts",
     "go-live": "bash go-live.sh"
   },
