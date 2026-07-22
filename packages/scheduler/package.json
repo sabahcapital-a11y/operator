@@ -1,0 +1,15 @@
+{
+  "name": "@leadguard/scheduler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun run --watch src/index.ts"
+  },
+  "dependencies": {
+    "@leadguard/db": "workspace:*",
+    "croner": "^9.0.0"
+  }
+}

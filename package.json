@@ -1,0 +1,21 @@
+{
+  "name": "leadguard",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "db:generate": "bun run --cwd packages/db generate",
+    "db:migrate": "bun run --cwd packages/db migrate",
+    "db:push": "bun run --cwd packages/db push",
+    "db:studio": "bun run --cwd packages/db studio",
+    "runner": "bun run --cwd packages/runner start",
+    "scheduler": "bun run --cwd packages/scheduler start",
+    "sample:seed": "bun run --cwd packages/db seed"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "typescript": "^5.7.0"
+  }
+}
