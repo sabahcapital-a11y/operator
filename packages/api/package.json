@@ -6,7 +6,8 @@
   "main": "./src/index.ts",
   "scripts": {
     "start": "bun run src/index.ts",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "verify-batch": "bun run src/verify-batch.ts"
   },
   "dependencies": {
     "@leadguard/db": "workspace:*",
