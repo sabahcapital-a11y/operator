@@ -217,3 +217,29 @@ main().catch((err) => {
   console.error("Fatal onboard error:", err);
   process.exit(1);
 });
+
+// ── Re-exports for other workspace packages (repair agent, etc.) ──────────
+
+export { crawlSite } from "./crawler";
+export type { CrawlResult } from "./crawler";
+
+export { generateScripts } from "./script-generator";
+export type { GeneratedJourney } from "./script-generator";
+
+export { detectForms } from "./detectors/form-detector";
+export type { DetectedForm } from "./detectors/form-detector";
+
+export { detectBookingWidgets } from "./detectors/booking-detector";
+export type { DetectedBookingWidget } from "./detectors/booking-detector";
+
+export { detectPhones } from "./detectors/phone-detector";
+export type { DetectedPhone } from "./detectors/phone-detector";
+
+export { detectChatWidgets } from "./detectors/chat-detector";
+export type { DetectedChatWidget } from "./detectors/chat-detector";
+
+export { detectCheckoutPaths } from "./detectors/checkout-detector";
+export type { DetectedCheckout } from "./detectors/checkout-detector";
+
+export { detectPixels } from "./detectors/pixel-detector";
+export type { DetectedPixel } from "./detectors/pixel-detector";

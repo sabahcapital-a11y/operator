@@ -8,6 +8,29 @@ const PRICING = [
   { name: "Agency Plus", price: 399, sites: 50, features: ["Up to 50 sites", "Hourly checks", "Email + Slack alerts", "Weekly reports", "White-label on custom domain", "Priority support"] },
 ];
 
+const FAQS = [
+  {
+    q: "Will test submissions pollute my client's CRM?",
+    a: "No. LeadGuard uses dedicated test identities (test@leadguard-test.dev, +1-555-0100) that are clearly marked. We also provide CRM filter instructions so you can automatically exclude our test traffic from your client's lead counts.",
+  },
+  {
+    q: "What happens if my site has a CAPTCHA?",
+    a: "We detect CAPTCHAs during onboarding and alert you. For full coverage, we recommend whitelisting our monitoring IPs on your client's CAPTCHA provider. Without whitelisting, we can still monitor page load and DOM presence, but form submissions may be partially covered.",
+  },
+  {
+    q: "Can I white-label reports for my clients?",
+    a: "Yes — white-label reports are included on the Agency plan and above. Agency Plus plans can host white-labeled reports on a custom domain, so your clients see your brand, not ours.",
+  },
+  {
+    q: "How is this different from uptime monitoring?",
+    a: "Uptime monitoring only checks if the server responds. LeadGuard checks if the money paths actually work — forms submit, booking widgets load, checkout flows complete, and pixels fire. A server can be up while your lead form is silently broken.",
+  },
+  {
+    q: "How often do you check my client sites?",
+    a: "Daily monitoring is standard on all plans. Agency Plus includes hourly checks. You can also trigger on-demand scans from your dashboard at any time.",
+  },
+];
+
 export default function Landing() {
   const [url, setUrl] = useState("");
   const [scanning, setScanning] = useState(false);
@@ -48,12 +71,13 @@ export default function Landing() {
 
       {/* Hero */}
       <section className="max-w-4xl mx-auto px-4 py-20 text-center">
-        <h1 className="text-4xl font-bold tracking-tight mb-4">
-          Know your leads are safe — <span className="text-blue-600">every night.</span>
+        <h1 className="text-4xl font-bold tracking-tight mb-4 leading-tight">
+          Your clients' lead forms are breaking{" "}
+          <span className="text-blue-600">right now.</span>{" "}
+          You just don't know it yet.
         </h1>
         <p className="text-lg text-gray-500 mb-8 max-w-2xl mx-auto">
-          LeadGuard silently tests your forms, booking widgets, checkout flows, and tracking pixels.
-          Free instant scan — paste a URL.
+          LeadGuard silently tests every form, booking widget, checkout, and pixel on your client sites every night. 7-day free trial. No scripts to write.
         </p>
 
         {/* Scan form */}
@@ -106,7 +130,7 @@ export default function Landing() {
 
             {/* Email capture */}
             <div className="border-t border-gray-200 pt-4 mt-4">
-              <p className="text-sm font-medium mb-2">Get weekly monitoring for all your client sites</p>
+              <p className="text-sm font-medium mb-2">Get nightly monitoring for all your client sites</p>
               <div className="flex gap-2">
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                   placeholder="you@agency.com"
@@ -121,11 +145,50 @@ export default function Landing() {
         )}
       </section>
 
+      {/* How it works */}
+      <section className="py-16 px-4 bg-gray-50" id="how-it-works">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-2xl font-bold text-center mb-10">How it works</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Step 1 */}
+            <div className="text-center">
+              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4 font-bold">
+                🔗
+              </div>
+              <h3 className="text-lg font-semibold mb-2">1. Paste a URL</h3>
+              <p className="text-sm text-gray-500">
+                Drop in any client site URL. Our AI agents crawl the site, map every page, and automatically identify all the paths that drive revenue.
+              </p>
+            </div>
+            {/* Step 2 */}
+            <div className="text-center">
+              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4 font-bold">
+                🔍
+              </div>
+              <h3 className="text-lg font-semibold mb-2">2. We auto-discover every revenue path</h3>
+              <p className="text-sm text-gray-500">
+                Contact forms, booking widgets, checkout flows, phone numbers, tracking pixels — we find them all and generate test scripts automatically. Zero configuration required.
+              </p>
+            </div>
+            {/* Step 3 */}
+            <div className="text-center">
+              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4 font-bold">
+                🔔
+              </div>
+              <h3 className="text-lg font-semibold mb-2">3. Get alerts before your client notices</h3>
+              <p className="text-sm text-gray-500">
+                Every night, we run every test. If something breaks, you get a plain-English alert with a screenshot — before the client calls asking why the leads stopped.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Pricing */}
-      <section className="bg-gray-50 py-16 px-4" id="pricing">
+      <section className="py-16 px-4" id="pricing">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl font-bold text-center mb-2">Simple, transparent pricing</h2>
-          <p className="text-gray-500 text-center mb-6">14-day free trial on all plans. No credit card required.</p>
+          <p className="text-gray-500 text-center mb-6">7-day free trial on all plans. No credit card required.</p>
 
           <div className="flex justify-center mb-8">
             <div className="inline-flex bg-white rounded-lg border border-gray-200 p-1">
@@ -143,7 +206,7 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {PRICING.map(plan => (
               <div key={plan.name} className={`bg-white rounded-xl border p-6 ${plan.highlighted ? "border-blue-300 ring-2 ring-blue-100" : "border-gray-200"}`}>
-                {plan.highlighted && <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Most Popular</span>}
+                {plan.highlighted && <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Recommended</span>}
                 <h3 className="text-lg font-semibold mt-2">{plan.name}</h3>
                 <p className="text-3xl font-bold mt-2">
                   ${billing === "annual" ? annualPrice(plan.price) : plan.price}<span className="text-lg font-normal text-gray-400">/mo</span>
@@ -158,7 +221,7 @@ export default function Landing() {
                 </ul>
                 <Link to="/register"
                   className={`block text-center mt-6 px-4 py-2 rounded-lg text-sm font-medium ${plan.highlighted ? "bg-blue-600 text-white hover:bg-blue-700" : "border border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
-                  Start Free Trial
+                  Start 7-Day Free Trial
                 </Link>
               </div>
             ))}
@@ -166,8 +229,54 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* FAQ */}
+      <section className="py-16 px-4 bg-gray-50" id="faq">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-2xl font-bold text-center mb-10">Frequently asked questions</h2>
+          <div className="space-y-4">
+            {FAQS.map((faq, i) => (
+              <details key={i} className="bg-white rounded-lg border border-gray-200 p-4 group">
+                <summary className="font-medium text-gray-900 cursor-pointer list-none flex justify-between items-center">
+                  {faq.q}
+                  <span className="text-gray-400 group-open:hidden ml-2">+</span>
+                  <span className="text-gray-400 hidden group-open:inline ml-2">−</span>
+                </summary>
+                <p className="text-sm text-gray-500 mt-3 leading-relaxed">{faq.a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="py-16 px-4 text-center">
+        <h2 className="text-2xl font-bold mb-4">Stop guessing. Start monitoring.</h2>
+        <p className="text-gray-500 mb-6 max-w-lg mx-auto">
+          Paste a URL below to see every revenue path on your client site — free, no signup required.
+        </p>
+        <form onSubmit={handleScan} className="max-w-xl mx-auto">
+          <div className="flex gap-2">
+            <input
+              type="url" value={url} onChange={e => setUrl(e.target.value)} required
+              placeholder="https://your-client-site.com"
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <button type="submit" disabled={scanning}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
+              {scanning ? "Scanning..." : "Scan Now"}
+            </button>
+          </div>
+        </form>
+        {result && (
+          <p className="text-sm text-green-600 mt-4">
+            ✅ Found {result.totalPaths} revenue paths —{" "}
+            <Link to="/register" className="underline text-blue-600 font-medium">start your free trial</Link> to monitor them nightly.
+          </p>
+        )}
+      </section>
+
       {/* Social proof */}
-      <section className="py-12 px-4 text-center">
+      <section className="py-12 px-4 text-center border-t border-gray-100">
         <p className="text-sm text-gray-400">Trusted by agencies monitoring 500+ sites</p>
       </section>
 
