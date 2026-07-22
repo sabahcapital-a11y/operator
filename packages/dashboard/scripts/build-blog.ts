@@ -1,0 +1,184 @@
+/**
+ * Build script: converts markdown blog posts from /home/team/shared/content/
+ * into a TypeScript data file for the dashboard.
+ *
+ * Usage: bun run scripts/build-blog.ts
+ */
+
+import { readdir, readFile, writeFile } from "node:fs/promises";
+import { basename, extname } from "node:path";
+
+const CONTENT_DIR = "/home/team/shared/content";
+const OUTPUT_FILE = new URL("../src/data/blogPosts.ts", import.meta.url).pathname;
+
+interface BlogPost {
+  slug: string;
+  title: string;
+  date: string;
+  excerpt: string;
+  html: string;
+  description: string; // for meta tag
+}
+
+// ── Simple Markdown → HTML converter ──────────────────────────────────
+
+function mdToHtml(md: string): string {
+  let html = md;
+
+  // Fenced code blocks (``` ... ```) — must run before other transforms
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, lang, code) => {
+    const escaped = escapeHtml(code.trimEnd());
+    return `<pre><code>${escaped}</code></pre>`;
+  });
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+
+  // Bold
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+  // Italic
+  html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
+
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:underline">$1</a>');
+
+  // Headings (h3 before h2 before h1)
+  html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
+  html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
+  html = html.replace(/^# (.+)$/gm, "<h1>$1</h1>");
+
+  // Horizontal rules
+  html = html.replace(/^---$/gm, "<hr>");
+
+  // Unordered list items — group consecutive <li>s into <ul>
+  html = html.replace(/^[\-\•]\s+(.+)$/gm, "<li>$1</li>");
+  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, "<ul>$1</ul>");
+
+  // Ordered list items
+  html = html.replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>");
+
+  // Paragraphs: wrap lines that aren't already HTML tags
+  // Split by double newline for paragraphs
+  const blocks = html.split(/\n\n+/);
+  html = blocks
+    .map((block) => {
+      const trimmed = block.trim();
+      if (!trimmed) return "";
+      // Already an HTML block-level element
+      if (/^<(h[1-3]|ul|ol|pre|hr|li|blockquote|div|table)/.test(trimmed)) {
+        return trimmed;
+      }
+      // Multiple <li>s should be wrapped in <ol> if they came from ordered
+      if (/^<li>/.test(trimmed) && !/^<[uo]l>/.test(trimmed)) {
+        return `<ol>${trimmed}</ol>`;
+      }
+      // Plain text → paragraph
+      // Handle inline line breaks within paragraph
+      const withBreaks = trimmed.replace(/\n/g, "<br>");
+      return `<p>${withBreaks}</p>`;
+    })
+    .join("\n");
+
+  return html;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// ── Extract excerpt: first meaningful paragraph after the title ──────
+
+function extractExcerpt(md: string): string {
+  // Remove [DRAFT] line, title line, blank lines at start
+  const lines = md
+    .replace(/^\*\*\[DRAFT\]\*\*\s*\n?/i, "")
+    .replace(/^# .+\n+/, "")
+    .trim()
+    .split(/\n\n+/);
+
+  for (const para of lines) {
+    const cleaned = para.trim();
+    // Skip if it's a heading, image, code block, or horizontal rule
+    if (/^(#|```|---|!\[)/.test(cleaned)) continue;
+    if (cleaned.length > 40) {
+      // Return first ~200 chars of plain text
+      const plain = cleaned
+        .replace(/[#*`\[\]()!_]/g, "")
+        .replace(/\n/g, " ")
+        .trim();
+      return plain.length > 200 ? plain.slice(0, 197) + "..." : plain;
+    }
+  }
+  return "";
+}
+
+// ── Main ──────────────────────────────────────────────────────────────
+
+async function main() {
+  const files = (await readdir(CONTENT_DIR)).filter(
+    (f) => extname(f) === ".md"
+  );
+
+  const posts: BlogPost[] = [];
+
+  for (const file of files.sort().reverse()) {
+    const raw = await readFile(`${CONTENT_DIR}/${file}`, "utf-8");
+
+    // Remove [DRAFT] tag
+    let content = raw.replace(/^\*\*\[DRAFT\]\*\*\s*\n?/i, "");
+
+    // Extract title from first # heading
+    const titleMatch = content.match(/^# (.+)$/m);
+    const title = titleMatch ? titleMatch[1].trim() : "Untitled";
+
+    // Extract date from filename (YYYY-MM-DD-slug.md)
+    const dateMatch = basename(file, ".md").match(/^(\d{4}-\d{2}-\d{2})-/);
+    const date = dateMatch ? dateMatch[1] : "";
+
+    // Slug: everything after the date prefix
+    const slug = basename(file, ".md").replace(/^\d{4}-\d{2}-\d{2}-/, "");
+
+    // Excerpt: first paragraph after title
+    const excerpt = extractExcerpt(content);
+
+    // Description for SEO meta tag
+    const description = excerpt.length > 160 ? excerpt.slice(0, 157) + "..." : excerpt;
+
+    // Convert to HTML — remove the title line before converting body
+    const bodyMd = content.replace(/^# .+\n+/, "").trim();
+    const html = mdToHtml(bodyMd);
+
+    posts.push({ slug, title, date, excerpt, html, description });
+  }
+
+  // Generate TypeScript file
+  const ts =
+    `// Auto-generated by scripts/build-blog.ts — do not edit by hand\n` +
+    `// Generated at: ${new Date().toISOString()}\n\n` +
+    `export interface BlogPost {\n` +
+    `  slug: string;\n` +
+    `  title: string;\n` +
+    `  date: string;\n` +
+    `  excerpt: string;\n` +
+    `  html: string;\n` +
+    `  description: string;\n` +
+    `}\n\n` +
+    `const blogPosts: BlogPost[] = ${JSON.stringify(posts, null, 2)};\n\n` +
+    `export default blogPosts;\n`;
+
+  await writeFile(OUTPUT_FILE, ts, "utf-8");
+  console.log(`✅ Wrote ${posts.length} blog posts to ${OUTPUT_FILE}`);
+  for (const p of posts) {
+    console.log(`   • ${p.slug} — "${p.title}"`);
+  }
+}
+
+main().catch((err) => {
+  console.error("❌ Build failed:", err);
+  process.exit(1);
+});
