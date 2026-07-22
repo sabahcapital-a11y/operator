@@ -49,8 +49,13 @@ export const agencies = pgTable("agencies", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }),
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
   plan: planEnum("plan").notNull().default("freelancer"),
+  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+  whiteLabel: integer("white_label").notNull().default(0),
+  whiteLabelDomain: varchar("white_label_domain", { length: 255 }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
