@@ -12,6 +12,7 @@ import { renderReportHtml } from "@leadguard/reports/src/html-template";
 import { loadWhiteLabelConfig } from "@leadguard/reports/src/white-label";
 import * as bcrypt from "bcryptjs";
 import Stripe from "stripe";
+import { verifyEmail, isSafeToSend } from "./email-verify";
 
 // ── JWT helpers (zero-dependency) ──────────────────────────────────
 
@@ -116,6 +117,19 @@ async function handleRegister(req: Request): Promise<Response> {
 
   const existing = await db.select().from(agencies).where(eq(agencies.email, email)).limit(1);
   if (existing.length > 0) return error("An account with this email already exists", 409);
+
+  // Optional email verification via ZeroBounce
+  if (process.env.ZEROBOUNCE_API_KEY) {
+    const verification = await verifyEmail(email);
+    if (verification.status === "invalid" || verification.status === "disposable") {
+      console.warn(`[api] Registration blocked: email ${email} status=${verification.status} sub=${verification.subStatus}`);
+      return error("This email address appears to be invalid or disposable. Please use a valid email address.", 422);
+    }
+    if (verification.status === "catch-all" || verification.status === "unknown") {
+      console.warn(`[api] Registration allowed with caution: email ${email} status=${verification.status}`);
+      // Log but don't block — catch-all/unknown need human review
+    }
+  }
 
   const hash = await bcrypt.hash(password, 10);
   const trialEnd = new Date(Date.now() + 7 * 86400000);
