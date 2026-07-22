@@ -275,9 +275,9 @@ export default function Landing() {
         )}
       </section>
 
-      {/* Social proof */}
+      {/* Value prop reminder */}
       <section className="py-12 px-4 text-center border-t border-gray-100">
-        <p className="text-sm text-gray-400">Trusted by agencies monitoring 500+ sites</p>
+        <p className="text-sm text-gray-400">Automated funnel monitoring for marketing agencies — catch broken forms, booking widgets, and pixels before your clients do.</p>
       </section>
 
       {/* Footer */}
