@@ -1,0 +1,14 @@
+{
+  "name": "@leadguard/onboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@leadguard/db": "workspace:*",
+    "playwright": "^1.61.0"
+  }
+}

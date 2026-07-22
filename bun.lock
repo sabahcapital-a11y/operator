@@ -20,6 +20,14 @@
         "drizzle-kit": "^0.31.0",
       },
     },
+    "packages/onboard": {
+      "name": "@leadguard/onboard",
+      "version": "0.1.0",
+      "dependencies": {
+        "@leadguard/db": "workspace:*",
+        "playwright": "^1.61.0",
+      },
+    },
     "packages/runner": {
       "name": "@leadguard/runner",
       "version": "0.1.0",
@@ -97,6 +105,8 @@
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
 
     "@leadguard/db": ["@leadguard/db@workspace:packages/db"],
+
+    "@leadguard/onboard": ["@leadguard/onboard@workspace:packages/onboard"],
 
     "@leadguard/runner": ["@leadguard/runner@workspace:packages/runner"],
 
