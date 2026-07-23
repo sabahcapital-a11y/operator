@@ -53,6 +53,10 @@ export const api = {
   // Scan
   scan: (url: string) => request<any>("/scan", { method: "POST", body: { url } }),
 
+  // Public scan report — captures email and sends report
+  submitScanReport: (email: string, url: string, scanResult: any) =>
+    request<any>("/scan/report", { method: "POST", body: { email, url, scanResult } }),
+
   // Reports
   getReport: (siteId: string, period = "7d") => request<string>(`/reports/${siteId}?period=${period}`),
 

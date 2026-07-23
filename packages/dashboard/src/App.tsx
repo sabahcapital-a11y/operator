@@ -4,6 +4,7 @@ import { api, getToken, clearToken } from "./api";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Scan from "./pages/Scan";
 import Dashboard from "./pages/Dashboard";
 import SiteDetail from "./pages/SiteDetail";
 import Alerts from "./pages/Alerts";
@@ -63,6 +64,7 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/" element={agency ? <Navigate to="/dashboard" /> : <Landing />} />
+        <Route path="/scan" element={<Scan />} />
         <Route path="/login" element={agency ? <Navigate to="/dashboard" /> : <Login onLogin={handleLogin} />} />
         <Route path="/register" element={agency ? <Navigate to="/dashboard" /> : <Register onLogin={handleLogin} />} />
 

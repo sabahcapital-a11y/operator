@@ -13,6 +13,8 @@ import { loadWhiteLabelConfig } from "@leadguard/reports/src/white-label";
 import * as bcrypt from "bcryptjs";
 import Stripe from "stripe";
 import { verifyEmail, isSafeToSend } from "./email-verify";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
 
 // ── JWT helpers (zero-dependency) ──────────────────────────────────
 
@@ -373,6 +375,265 @@ async function handleScan(req: Request): Promise<Response> {
   });
 }
 
+// ── Public scan report (email capture + report delivery) ─────────────
+
+const LEADS_FILE = "/home/team/shared/leads/captured-emails.json";
+
+interface CapturedLead {
+  email: string;
+  url: string;
+  siteName: string;
+  scanTime: string;
+  issuesFound: number;
+  totalPaths: number;
+  capturedAt: string;
+}
+
+function saveLead(lead: CapturedLead): void {
+  try {
+    const dir = dirname(LEADS_FILE);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    let leads: CapturedLead[] = [];
+    if (existsSync(LEADS_FILE)) {
+      try {
+        const raw = readFileSync(LEADS_FILE, "utf-8");
+        leads = JSON.parse(raw);
+      } catch {
+        leads = [];
+      }
+    }
+    leads.push(lead);
+    writeFileSync(LEADS_FILE, JSON.stringify(leads, null, 2), "utf-8");
+    console.log(`[api] Lead captured: ${lead.email} for ${lead.url}`);
+  } catch (err) {
+    console.error("[api] Failed to save lead:", err);
+  }
+}
+
+function buildScanReportHtml(scanResult: any, email: string): string {
+  const { url, siteName, pagesCrawled, pathsFound, totalPaths, warnings } = scanResult;
+  const scanDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const hasIssues = warnings && warnings.length > 0;
+
+  function esc(str: string): string {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function severityBadge(severity: string): string {
+    if (severity === "error" || severity === "critical") {
+      return '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#fff;background:#dc2626;text-transform:uppercase;">🔴 High</span>';
+    }
+    return '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#fff;background:#f59e0b;text-transform:uppercase;">🟡 Warning</span>';
+  }
+
+  function issueTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      missing_https: "Missing HTTPS",
+      broken_link: "Broken Link",
+      form_without_action: "Form Without Action",
+      missing_pixel: "Missing Tracking Pixel",
+      console_errors: "Console Error",
+    };
+    return labels[type] || type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  function issueImpact(type: string): string {
+    const impacts: Record<string, string> = {
+      missing_https: "Visitors may see security warnings in their browser, reducing trust and conversion rates. Some browsers block form submissions on HTTP pages.",
+      broken_link: "A critical page is returning an error. Visitors cannot access this page, potentially blocking a key step in the conversion funnel.",
+      form_without_action: "The form may not submit correctly. Contact form submissions could be silently lost.",
+      missing_pixel: "Tracking and retargeting are broken. The agency cannot measure campaign performance or build retargeting audiences.",
+      console_errors: "JavaScript errors can break interactive elements, forms, or tracking on the page.",
+    };
+    return impacts[type] || "This issue may affect the user experience or conversion path on the site.";
+  }
+
+  const pathsSection = `
+    <h2 style="font-size:18px;font-weight:700;color:#111827;margin:32px 0 14px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;">Revenue Paths Found</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:10px 12px;background:#f9fafb;border-bottom:2px solid #e5e7eb;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;">Path Type</th>
+          <th style="text-align:left;padding:10px 12px;background:#f9fafb;border-bottom:2px solid #e5e7eb;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;">Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${pathsFound.contactForms > 0 ? `<tr><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">📝 Contact Forms</td><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">${pathsFound.contactForms}</td></tr>` : ""}
+        ${pathsFound.bookingWidgets > 0 ? `<tr><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">📅 Booking Widgets</td><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">${pathsFound.bookingWidgets}</td></tr>` : ""}
+        ${pathsFound.phoneLinks > 0 ? `<tr><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">📞 Phone Links</td><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">${pathsFound.phoneLinks}</td></tr>` : ""}
+        ${pathsFound.chatWidgets > 0 ? `<tr><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">💬 Chat Widgets</td><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">${pathsFound.chatWidgets}</td></tr>` : ""}
+        ${pathsFound.checkoutPaths > 0 ? `<tr><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">🛒 Checkout Paths</td><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">${pathsFound.checkoutPaths}</td></tr>` : ""}
+        ${pathsFound.trackingPixels > 0 ? `<tr><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">📊 Tracking Pixels</td><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">${pathsFound.trackingPixels}</td></tr>` : ""}
+      </tbody>
+    </table>`;
+
+  const issuesSection = hasIssues ? `
+    <h2 style="font-size:18px;font-weight:700;color:#dc2626;margin:32px 0 14px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;">Issues Found (${warnings.length})</h2>
+    ${warnings.map((w: string) => {
+      const isHigh = /broken|500|error|failure|down|crash/i.test(w);
+      const badge = isHigh ? severityBadge("error") : severityBadge("warning");
+      // Try to extract type from warning format: "TYPE: detail"
+      const colonIdx = w.indexOf(":");
+      const type = colonIdx > 0 ? w.slice(0, colonIdx).trim() : "";
+      const detail = colonIdx > 0 ? w.slice(colonIdx + 1).trim() : w;
+      return `
+    <div style="border:1px solid #e5e7eb;border-radius:6px;padding:14px 18px;margin-bottom:10px;border-left:4px solid ${isHigh ? '#dc2626' : '#f59e0b'};">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px;">
+        ${badge}
+        <span style="font-weight:700;font-size:13px;color:#1f2937;">${esc(issueTypeLabel(type))}</span>
+      </div>
+      <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">${esc(detail)}</div>
+      ${isHigh ? `<div style="font-size:12px;color:#4b5563;background:#f9fafb;padding:8px 10px;border-radius:4px;line-height:1.5;"><strong>Impact:</strong> ${esc(issueImpact(type))}</div>` : ""}
+    </div>`;
+    }).join("")}
+  ` : `
+    <h2 style="font-size:18px;font-weight:700;color:#16a34a;margin:32px 0 14px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;">✅ No Issues Found</h2>
+    <p style="color:#6b7280;font-size:13px;">All ${totalPaths} revenue paths appear healthy.</p>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Website Health Scan Report — ${esc(siteName || url)}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px; line-height: 1.6; color: #1f2937; background: #fff;
+    max-width: 700px; margin: 0 auto; padding: 40px 28px;
+  }
+  @media print { body { max-width: none; padding: 20px; font-size: 11px; } }
+</style>
+</head>
+<body>
+
+<div style="text-align:center;padding:36px 0 24px;border-bottom:3px solid #2563eb;margin-bottom:28px;">
+  <div style="font-size:24px;font-weight:800;color:#111827;margin-bottom:4px;">Website Health Scan Report</div>
+  <div style="font-size:15px;color:#6b7280;">${esc(siteName || url)}</div>
+  <div style="font-size:12px;color:#9ca3af;margin-top:8px;">Scan Date: ${scanDate} · ${pagesCrawled} page${pagesCrawled !== 1 ? "s" : ""} crawled</div>
+  <div style="display:flex;justify-content:center;gap:24px;margin-top:16px;flex-wrap:wrap;">
+    <div style="text-align:center;min-width:70px;"><div style="font-size:24px;font-weight:800;color:#111827;">${totalPaths}</div><div style="font-size:10px;color:#6b7280;text-transform:uppercase;">Paths Found</div></div>
+    <div style="text-align:center;min-width:70px;"><div style="font-size:24px;font-weight:800;color:${hasIssues ? '#dc2626' : '#16a34a'};">${warnings?.length || 0}</div><div style="font-size:10px;color:#6b7280;text-transform:uppercase;">Issues</div></div>
+  </div>
+</div>
+
+${pathsSection}
+${issuesSection}
+
+<div style="background:linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);color:#fff;border-radius:10px;padding:24px 28px;margin:32px 0 24px;text-align:center;">
+  <h2 style="font-size:18px;font-weight:700;margin-bottom:12px;color:#fff;">Keep Your Site Protected</h2>
+  <p style="font-size:13px;line-height:1.7;margin-bottom:8px;color:#dbeafe;">
+    This audit is a snapshot of <strong>${scanDate}</strong>. Forms break. Pixels stop firing. Every plugin update or CMS change can silently break your revenue paths.
+  </p>
+  <p style="font-size:13px;margin-bottom:12px;color:#dbeafe;">
+    Silentbreak watches every one of these paths nightly and alerts you <strong>before your client notices.</strong>
+  </p>
+  <p style="font-size:15px;font-weight:600;color:#fff;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.2);">
+    → <a href="https://leadguard.dev/register" style="color:#fbbf24;text-decoration:none;border-bottom:1px solid rgba(251,191,36,0.4);">Start your 7-day free trial</a> — no credit card required
+  </p>
+</div>
+
+<div style="margin-top:28px;padding-top:16px;border-top:2px solid #e5e7eb;text-align:center;font-size:11px;color:#9ca3af;line-height:1.8;">
+  Report generated by <strong>Silentbreak</strong> for ${esc(email)}<br>
+  Silentbreak — Automated Funnel Monitoring for Agencies
+</div>
+
+</body>
+</html>`;
+}
+
+async function sendScanReportEmail(email: string, htmlBody: string, subject: string): Promise<string> {
+  const from = process.env.LEADGUARD_EMAIL_FROM || "alerts@leadguard.dev";
+
+  // Try Mailgun first
+  const mailgunKey = process.env.MAILGUN_API_KEY;
+  const mailgunDomain = process.env.MAILGUN_DOMAIN;
+
+  if (mailgunKey && mailgunDomain) {
+    try {
+      const formData = new URLSearchParams();
+      formData.append("from", from);
+      formData.append("to", email);
+      formData.append("subject", subject);
+      formData.append("html", htmlBody);
+
+      const auth = Buffer.from(`api:${mailgunKey}`).toString("base64");
+      const response = await fetch(
+        `https://api.mailgun.net/v3/${mailgunDomain}/messages`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${auth}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: formData.toString(),
+        }
+      );
+
+      if (response.ok) {
+        return "sent (mailgun)";
+      } else {
+        const text = await response.text();
+        console.error(`[api] Mailgun send failed: HTTP ${response.status} — ${text.slice(0, 200)}`);
+        return `error (mailgun): HTTP ${response.status}`;
+      }
+    } catch (err: any) {
+      console.error(`[api] Mailgun error:`, err.message);
+      return `error (mailgun): ${err.message}`;
+    }
+  }
+
+  // Try SMTP
+  const smtpHost = process.env.SMTP_HOST;
+  if (smtpHost) {
+    console.log(`[api] SMTP configured, would send report to ${email}`);
+    console.log(`[api] Subject: ${subject}`);
+    return "logged (SMTP not implemented)";
+  }
+
+  // No transport — log to console
+  console.log(`[api] No email transport configured — would send to: ${email}`);
+  console.log(`[api] Subject: ${subject}`);
+  return "logged (no transport)";
+}
+
+async function handleScanReport(req: Request): Promise<Response> {
+  const body = await parseBody(req);
+  const { email, url, scanResult } = body;
+
+  if (!email) return error("email is required");
+  if (!scanResult) return error("scanResult is required");
+
+  // Basic email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) return error("Invalid email address");
+
+  // Build report HTML
+  const htmlReport = buildScanReportHtml(scanResult, email);
+
+  // Save lead
+  const lead: CapturedLead = {
+    email,
+    url: scanResult.url || url,
+    siteName: scanResult.siteName || "",
+    scanTime: new Date().toISOString(),
+    issuesFound: scanResult.warnings?.length || 0,
+    totalPaths: scanResult.totalPaths || 0,
+    capturedAt: new Date().toISOString(),
+  };
+  saveLead(lead);
+
+  // Send email
+  const siteName = scanResult.siteName || url || "your site";
+  const subject = `Website Health Scan Report for ${siteName}`;
+  const sendResult = await sendScanReportEmail(email, htmlReport, subject);
+
+  console.log(`[api] Scan report: email=${email}, url=${siteName}, result=${sendResult}`);
+
+  return json({ ok: true, message: "Report sent!", result: sendResult });
+}
+
 // ── Reports ─────────────────────────────────────────────────────────
 
 async function handleGenerateReport(agencyId: string, siteId: string, req: Request): Promise<Response> {
@@ -508,6 +769,8 @@ const routes: { method: string; pattern: RegExp; handler: Handler; auth: boolean
   { method: "POST", pattern: /^\/api\/auth\/login$/, handler: (req) => handleLogin(req), auth: false },
   // Public scan
   { method: "POST", pattern: /^\/api\/scan$/, handler: handleScan, auth: false },
+  // Public scan report (email capture)
+  { method: "POST", pattern: /^\/api\/scan\/report$/, handler: handleScanReport, auth: false },
   // Webhook
   { method: "POST", pattern: /^\/api\/webhooks\/stripe$/, handler: handleStripeWebhook, auth: false },
   // Sites
