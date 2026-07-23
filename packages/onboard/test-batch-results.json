@@ -1,0 +1,145 @@
+{
+  "batchScanTime": "2026-07-23T10:30:00.000Z",
+  "totalSites": 3,
+  "sitesScanned": 3,
+  "sitesFailed": 0,
+  "results": [
+    {
+      "label": "Sunrise Dental",
+      "url": "https://sunrisedental.example.com",
+      "status": "success",
+      "scan": {
+        "url": "https://sunrisedental.example.com",
+        "scanTime": "2026-07-23T10:30:01.000Z",
+        "pagesCrawled": 8,
+        "findings": {
+          "contactForms": [
+            { "page": "/contact", "method": "POST", "action": "/api/contact", "fields": 5 },
+            { "page": "/appointment", "method": "POST", "action": null, "fields": 8 }
+          ],
+          "bookingWidgets": [
+            { "page": "/appointment", "provider": "Calendly", "url": "https://calendly.com/sunrisedental" }
+          ],
+          "phoneLinks": [
+            { "page": "/contact", "href": "tel:+15551234567", "number": "+1-555-123-4567" },
+            { "page": "/", "href": "tel:+15551234567", "number": "+1-555-123-4567" }
+          ],
+          "chatWidgets": [],
+          "checkoutPaths": [],
+          "trackingPixels": [
+            { "page": "/", "provider": "Google Analytics 4", "id": "G-ABC123" }
+          ]
+        },
+        "issues": [
+          {
+            "severity": "warning",
+            "type": "form_without_action",
+            "detail": "Form on /appointment has no action attribute"
+          },
+          {
+            "severity": "warning",
+            "type": "missing_pixel",
+            "detail": "No Meta (Facebook) pixel found on any page"
+          }
+        ],
+        "summary": {
+          "totalPaths": 6,
+          "issuesFound": 2,
+          "highSeverity": 0
+        }
+      }
+    },
+    {
+      "label": "Riverstone Law",
+      "url": "https://riverstonelaw.example.com",
+      "status": "success",
+      "scan": {
+        "url": "https://riverstonelaw.example.com",
+        "scanTime": "2026-07-23T10:31:00.000Z",
+        "pagesCrawled": 10,
+        "findings": {
+          "contactForms": [
+            { "page": "/free-consultation", "method": "POST", "action": "https://httpbin.org/post", "fields": 6 }
+          ],
+          "bookingWidgets": [],
+          "phoneLinks": [
+            { "page": "/contact", "href": "tel:+15559876543", "number": "+1-555-987-6543" }
+          ],
+          "chatWidgets": [
+            { "page": "/", "provider": "Tawk.to" }
+          ],
+          "checkoutPaths": [],
+          "trackingPixels": []
+        },
+        "issues": [
+          {
+            "severity": "error",
+            "type": "missing_https",
+            "detail": "https://riverstonelaw.example.com is served over HTTP (not HTTPS)"
+          },
+          {
+            "severity": "warning",
+            "type": "missing_pixel",
+            "detail": "No GA4 or Meta pixel found on any page"
+          },
+          {
+            "severity": "warning",
+            "type": "console_errors",
+            "detail": "/: Uncaught TypeError: Cannot read properties of null"
+          }
+        ],
+        "summary": {
+          "totalPaths": 3,
+          "issuesFound": 3,
+          "highSeverity": 1
+        }
+      }
+    },
+    {
+      "label": "Greenfield Realty",
+      "url": "https://greenfieldrealty.example.com",
+      "status": "success",
+      "scan": {
+        "url": "https://greenfieldrealty.example.com",
+        "scanTime": "2026-07-23T10:32:00.000Z",
+        "pagesCrawled": 10,
+        "findings": {
+          "contactForms": [
+            { "page": "/contact", "method": "POST", "action": "/api/inquiry", "fields": 7 },
+            { "page": "/listings/123", "method": "POST", "action": "/api/schedule", "fields": 5 }
+          ],
+          "bookingWidgets": [
+            { "page": "/schedule", "provider": "Acuity Scheduling", "url": "https://acuityscheduling.com/greenfield" }
+          ],
+          "phoneLinks": [
+            { "page": "/contact", "href": "tel:+15555550123", "number": "+1-555-555-0123" }
+          ],
+          "chatWidgets": [
+            { "page": "/", "provider": "Intercom" }
+          ],
+          "checkoutPaths": [],
+          "trackingPixels": [
+            { "page": "/", "provider": "Google Analytics 4", "id": "G-XYZ789" },
+            { "page": "/", "provider": "Meta Pixel", "id": "123456789" }
+          ]
+        },
+        "issues": [],
+        "summary": {
+          "totalPaths": 7,
+          "issuesFound": 0,
+          "highSeverity": 0
+        }
+      }
+    }
+  ],
+  "summary": {
+    "totalForms": 5,
+    "totalIssues": 5,
+    "highSeverityIssues": 1,
+    "totalBookings": 2,
+    "totalPhones": 4,
+    "totalChats": 2,
+    "totalCheckouts": 0,
+    "totalPixels": 3
+  }
+}
