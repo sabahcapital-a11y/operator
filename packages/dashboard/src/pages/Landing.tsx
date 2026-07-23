@@ -184,6 +184,182 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Product visuals */}
+      <section className="py-16 px-4" id="product-preview">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-2xl font-bold text-center mb-2">See what you'll get</h2>
+          <p className="text-gray-500 text-center mb-10">Your command center for monitoring every revenue path across every client site.</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+            {/* Panel 1: Dashboard */}
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+              {/* Browser chrome */}
+              <div className="bg-gray-100 px-3 py-2 flex items-center gap-1.5 border-b border-gray-200">
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#ef4444"}}></span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#eab308"}}></span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#22c55e"}}></span>
+                <span className="text-xs text-gray-400 ml-4">Dashboard — LeadGuard</span>
+              </div>
+              {/* Dashboard body */}
+              <div className="p-3">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold text-gray-700">Sites</span>
+                  <span className="text-xs text-gray-400">12 / 20 monitored</span>
+                </div>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-gray-400">
+                      <th className="text-left py-1.5 font-medium">Site</th>
+                      <th className="text-left py-1.5 font-medium">Status</th>
+                      <th className="text-left py-1.5 font-medium">Chk</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-gray-50">
+                      <td className="py-1.5 text-gray-700">acme-co.com</td>
+                      <td className="py-1.5"><span className="px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">active</span></td>
+                      <td className="py-1.5 text-gray-400">2h ago</td>
+                    </tr>
+                    <tr className="border-b border-gray-50">
+                      <td className="py-1.5 text-gray-700">premier-law.com</td>
+                      <td className="py-1.5"><span className="px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">error</span></td>
+                      <td className="py-1.5 text-red-500 font-medium">1h ago</td>
+                    </tr>
+                    <tr className="border-b border-gray-50">
+                      <td className="py-1.5 text-gray-700">greentech.io</td>
+                      <td className="py-1.5"><span className="px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">active</span></td>
+                      <td className="py-1.5 text-gray-400">2h ago</td>
+                    </tr>
+                    <tr className="border-b border-gray-50">
+                      <td className="py-1.5 text-gray-700">north-dental.com</td>
+                      <td className="py-1.5"><span className="px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">active</span></td>
+                      <td className="py-1.5 text-gray-400">3h ago</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1.5 text-gray-700">peak-fitness.com</td>
+                      <td className="py-1.5"><span className="px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">active</span></td>
+                      <td className="py-1.5 text-gray-400">3h ago</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div className="mt-2 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{background:"#ef4444"}}></span>
+                  <span className="text-xs text-red-600 font-medium">1 site with errors</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Panel 2: Alert */}
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+              {/* Browser chrome */}
+              <div className="bg-gray-100 px-3 py-2 flex items-center gap-1.5 border-b border-gray-200">
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#ef4444"}}></span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#eab308"}}></span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#22c55e"}}></span>
+                <span className="text-xs text-gray-400 ml-4">Slack — #alerts-leadguard</span>
+              </div>
+              {/* Slack-like body */}
+              <div className="flex" style={{minHeight:"200px"}}>
+                {/* Sidebar */}
+                <div className="flex flex-col p-2 gap-1" style={{width:"44px",background:"#1e1a2f"}}>
+                  <span className="w-5 h-5 rounded" style={{background:"#4a154b"}}></span>
+                  <span className="w-5 h-5 rounded" style={{background:"#36c5f0"}}></span>
+                  <span className="w-5 h-5 rounded" style={{background:"#2eb67d"}}></span>
+                  <span className="w-5 h-5 rounded mt-auto" style={{background:"#ecb22e"}}></span>
+                </div>
+                {/* Message area */}
+                <div className="flex-1 p-3" style={{background:"#f8f8f8"}}>
+                  <div className="text-xs text-gray-400 mb-2">Today at 6:42 AM</div>
+                  <div className="bg-white rounded-lg border border-gray-200 p-3" style={{borderLeft:"4px solid #ef4444"}}>
+                    <div className="flex items-start gap-2 mb-2">
+                      <span className="text-lg leading-none mt-0.5" style={{color:"#ef4444"}}>&#9888;</span>
+                      <div>
+                        <p className="text-xs font-bold text-gray-900">Alert: Contact form failure on premier-law.com</p>
+                        <p className="text-xs text-gray-500 mt-0.5">The contact form at <span className="text-blue-600">/contact</span> is returning HTTP 500.</p>
+                      </div>
+                    </div>
+                    <div className="bg-red-50 rounded p-2 text-xs text-red-700 mb-2">
+                      3 attempts confirmed. Last successful submission was 2 days ago.
+                    </div>
+                    <span className="text-xs text-blue-600 font-medium cursor-pointer">View Details &rarr;</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Panel 3: Weekly Report */}
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+              {/* Browser chrome */}
+              <div className="bg-gray-100 px-3 py-2 flex items-center gap-1.5 border-b border-gray-200">
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#ef4444"}}></span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#eab308"}}></span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#22c55e"}}></span>
+                <span className="text-xs text-gray-400 ml-4">Weekly Report — LeadGuard</span>
+              </div>
+              {/* Report body */}
+              <div className="p-3">
+                <p className="text-xs font-bold text-gray-900 mb-3">Weekly Health Report: July 14–20, 2026</p>
+
+                {/* Pass rate */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-green-700">Overall Pass Rate</span>
+                    <span className="text-lg font-bold text-green-700">94%</span>
+                  </div>
+                  <p className="text-xs text-green-600 mt-0.5">15 / 16 journeys passing</p>
+                </div>
+
+                {/* Stats row */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div className="bg-gray-50 rounded p-2 text-center">
+                    <p className="text-lg font-bold text-gray-900">2</p>
+                    <p className="text-xs text-gray-500">incidents detected &amp; resolved</p>
+                  </div>
+                  <div className="bg-gray-50 rounded p-2 text-center">
+                    <p className="text-lg font-bold text-blue-600">8</p>
+                    <p className="text-xs text-gray-500">est. leads protected</p>
+                  </div>
+                </div>
+
+                {/* Journey health mini-table */}
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-gray-400">
+                      <th className="text-left py-1 font-medium">Journey</th>
+                      <th className="text-right py-1 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-gray-50">
+                      <td className="py-1 text-gray-700">Contact form</td>
+                      <td className="py-1 text-right"><span className="text-green-600 font-bold">&#10003;</span></td>
+                    </tr>
+                    <tr className="border-b border-gray-50">
+                      <td className="py-1 text-gray-700">Booking widget</td>
+                      <td className="py-1 text-right"><span className="text-green-600 font-bold">&#10003;</span></td>
+                    </tr>
+                    <tr className="border-b border-gray-50">
+                      <td className="py-1 text-gray-700">Checkout flow</td>
+                      <td className="py-1 text-right"><span className="text-green-600 font-bold">&#10003;</span></td>
+                    </tr>
+                    <tr className="border-b border-gray-50">
+                      <td className="py-1 text-gray-700">Phone tracking</td>
+                      <td className="py-1 text-right"><span className="text-green-600 font-bold">&#10003;</span></td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 text-gray-700">GA4 pixel</td>
+                      <td className="py-1 text-right"><span className="text-red-500 font-bold">&#10007;</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
       {/* Pricing */}
       <section className="py-16 px-4" id="pricing">
         <div className="max-w-5xl mx-auto">
