@@ -20,6 +20,9 @@
     "onboard": "bun run --cwd packages/onboard start",
     "reports": "bun run --cwd packages/reports start",
     "repair": "bun run --cwd packages/repair start",
+    "pipeline": "bun run --cwd packages/onboard pipeline",
+    "batch-scan": "bun run --cwd packages/onboard batch-scan",
+    "generate-report": "bun run --cwd packages/onboard generate-report",
     "publish": "bun run build && bun run serve.ts",
     "go-live": "bash go-live.sh"
   },
