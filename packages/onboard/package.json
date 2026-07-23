@@ -5,7 +5,8 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "start": "bun run src/index.ts"
+    "start": "bun run src/index.ts",
+    "scan": "bun run src/scan.ts"
   },
   "dependencies": {
     "@leadguard/db": "workspace:*",
