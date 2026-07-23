@@ -58,7 +58,7 @@ export async function runJourney(
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       userAgent:
-        "LeadGuard-Monitor/1.0 (compatible; monitoring; +https://leadguard.dev)",
+        "Silentbreak-Monitor/1.0 (compatible; monitoring; +https://leadguard.dev)",
       ignoreHTTPSErrors: true,
     });
 

@@ -26,7 +26,7 @@ export default function Register({ onLogin }: { onLogin: (token: string, agency:
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="max-w-sm w-full">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-blue-600">🛡️ LeadGuard</h1>
+          <h1 className="text-2xl font-bold text-blue-600">🛡️ Silentbreak</h1>
           <p className="text-gray-500 mt-1">Create your agency account — 7-day free trial</p>
         </div>
         <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">

@@ -56,7 +56,7 @@ async function isDuplicate(
 function buildSubject(siteName: string, journeyType: string, severity: string): string {
   const prefix = severity === "critical" ? "🔴" : severity === "warning" ? "🟡" : "🔵";
   const readableType = journeyType.replace(/_/g, " ");
-  return `${prefix} LeadGuard Alert: ${siteName} — ${readableType} failure`;
+  return `${prefix} Silentbreak Alert: ${siteName} — ${readableType} failure`;
 }
 
 /**
@@ -73,7 +73,7 @@ function buildBody(
 ): string {
   const readableType = journeyType.replace(/_/g, " ");
   const lines = [
-    `LeadGuard detected a ${severity.toUpperCase()} failure on ${siteName}.`,
+    `Silentbreak detected a ${severity.toUpperCase()} failure on ${siteName}.`,
     ``,
     `Journey: ${journeyName} (${readableType})`,
     `Severity: ${severity}`,
@@ -89,7 +89,7 @@ function buildBody(
   }
 
   lines.push(``);
-  lines.push(`— LeadGuard automated monitoring`);
+  lines.push(`— Silentbreak automated monitoring`);
 
   return lines.join("\n");
 }

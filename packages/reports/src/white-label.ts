@@ -2,11 +2,11 @@
  * White-label branding configuration.
  *
  * Controlled via environment variables:
- *   LEADGUARD_WHITE_LABEL=true   — enable white-label mode (hide LeadGuard branding)
+ *   LEADGUARD_WHITE_LABEL=true   — enable white-label mode (hide Silentbreak branding)
  *   LEADGUARD_AGENCY_NAME="..."  — agency name to display in report header
  *
- * When white-label is on, all LeadGuard branding is replaced with the agency name.
- * The footer still shows "Powered by LeadGuard" unless LEADGUARD_WHITE_LABEL is
+ * When white-label is on, all Silentbreak branding is replaced with the agency name.
+ * The footer still shows "Powered by Silentbreak" unless LEADGUARD_WHITE_LABEL is
  * set to "true", in which case it shows "Powered by [Agency Name]".
  */
 
@@ -17,7 +17,7 @@ export interface WhiteLabelConfig {
   reportTitle(siteName: string): string;
   /** Footer branding line */
   footerBranding(): string;
-  /** Logo placeholder — agency name when white-label, LeadGuard otherwise */
+  /** Logo placeholder — agency name when white-label, Silentbreak otherwise */
   logoText(): string;
   /** Subtitle under the logo */
   logoSlogan(): string;
@@ -32,7 +32,7 @@ export function loadWhiteLabelConfig(): WhiteLabelConfig {
     agencyName,
 
     reportTitle(siteName: string): string {
-      const brand = agencyName || "LeadGuard";
+      const brand = agencyName || "Silentbreak";
       return `${brand} — Weekly Monitoring Report for ${siteName}`;
     },
 
@@ -40,14 +40,14 @@ export function loadWhiteLabelConfig(): WhiteLabelConfig {
       if (enabled && agencyName) {
         return `Powered by ${agencyName} — Silent Funnel-Failure Monitoring`;
       }
-      return "Powered by LeadGuard — Silent Funnel-Failure Monitoring";
+      return "Powered by Silentbreak — Silent Funnel-Failure Monitoring";
     },
 
     logoText(): string {
       if (enabled && agencyName) {
         return agencyName;
       }
-      return "LeadGuard";
+      return "Silentbreak";
     },
 
     logoSlogan(): string {

@@ -49,7 +49,7 @@ const agencyName = lead.agencyName || "Unknown Agency";
 const contactEmail = lead.contactEmail || "";
 
 console.log("═══════════════════════════════════════════");
-console.log(`  LeadGuard Email Verification Report`);
+console.log(`  Silentbreak Email Verification Report`);
 console.log(`  Agency: ${agencyName}`);
 console.log(`  Email:  ${contactEmail || "(none)"}`);
 console.log("═══════════════════════════════════════════\n");

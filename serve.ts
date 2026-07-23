@@ -77,4 +77,4 @@ for (let attempt = 1; ; attempt++) {
   }
 }
 
-console.log(`LeadGuard serving on http://${HOST}:${String(PORT)}`);
+console.log(`Silentbreak serving on http://${HOST}:${String(PORT)}`);

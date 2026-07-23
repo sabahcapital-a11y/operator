@@ -1,5 +1,5 @@
 /**
- * LeadGuard Onboard — CLI entry point
+ * Silentbreak Onboard — CLI entry point
  *
  * Usage:
  *   DATABASE_URL=... bun run src/index.ts --url https://example.com --agency-id <uuid>

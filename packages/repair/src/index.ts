@@ -1,5 +1,5 @@
 /**
- * LeadGuard Repair Agent — CLI entry point
+ * Silentbreak Repair Agent — CLI entry point
  *
  * Self-healing: re-detects stale journeys, regenerates test scripts,
  * validates them, and updates the DB. Triggered automatically by the

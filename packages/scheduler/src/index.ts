@@ -1,5 +1,5 @@
 /**
- * LeadGuard Scheduler
+ * Silentbreak Scheduler
  *
  * Polls the database for journeys due for a run and spawns the runner.
  * Respects a concurrency limit (max concurrent Playwright instances).
@@ -192,7 +192,7 @@ async function poll() {
 
 // ── Main ───────────────────────────────────────────────────────────────────────
 
-console.log("[scheduler] LeadGuard Scheduler starting");
+console.log("[scheduler] Silentbreak Scheduler starting");
 console.log(`[scheduler] Poll interval: ${POLL_INTERVAL_SECONDS}s`);
 console.log(`[scheduler] Max concurrency: ${MAX_CONCURRENCY}`);
 console.log(`[scheduler] Triage enabled: runs with exit code 1 will be triaged`);

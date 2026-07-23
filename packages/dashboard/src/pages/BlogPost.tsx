@@ -8,7 +8,7 @@ export default function BlogPost() {
 
   useEffect(() => {
     if (post) {
-      document.title = `${post.title} — LeadGuard Blog`;
+      document.title = `${post.title} — Silentbreak Blog`;
       // Update meta description
       let meta = document.querySelector('meta[name="description"]');
       if (!meta) {
@@ -19,7 +19,7 @@ export default function BlogPost() {
       meta.setAttribute("content", post.description);
     }
     return () => {
-      document.title = "LeadGuard";
+      document.title = "Silentbreak";
     };
   }, [post]);
 
@@ -33,7 +33,7 @@ export default function BlogPost() {
       <header className="border-b border-gray-100 px-4 py-3">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <Link to="/" className="text-lg font-bold text-blue-600">
-            🛡️ LeadGuard
+            🛡️ Silentbreak
           </Link>
           <Link to="/blog" className="text-sm text-gray-500 hover:text-gray-700">
             ← Back to Blog
@@ -72,7 +72,7 @@ export default function BlogPost() {
       </main>
 
       <footer className="border-t border-gray-100 py-8 px-4 text-center text-sm text-gray-400">
-        &copy; {new Date().getFullYear()} LeadGuard. All rights reserved.
+        &copy; {new Date().getFullYear()} Silentbreak. All rights reserved.
       </footer>
     </div>
   );

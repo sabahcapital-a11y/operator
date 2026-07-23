@@ -6,7 +6,7 @@
  *
  * Test identity hygiene:
  *   - All test data uses `@leadguard-test.dev` email domain
- *   - Test names are clearly marked: "LeadGuard Test"
+ *   - Test names are clearly marked: "Silentbreak Test"
  *   - Test phone: "+1-555-0100" (reserved US test range)
  */
 
@@ -43,9 +43,9 @@ function buildFormFillCommands(form: DetectedForm): string {
     const lower = field.toLowerCase();
 
     if (/\b(name|full.?name)\b/i.test(lower)) {
-      lines.push(`  await ctx.page.fill('${esc(form.formAction ? `[name="${field}"]` : `#${field}`)}', 'LeadGuard Test');`);
+      lines.push(`  await ctx.page.fill('${esc(form.formAction ? `[name="${field}"]` : `#${field}`)}', 'Silentbreak Test');`);
     } else if (/\bfirst.?name\b/i.test(lower)) {
-      lines.push(`  await ctx.page.fill('${esc(`[name="${field}"]`)}', 'LeadGuard');`);
+      lines.push(`  await ctx.page.fill('${esc(`[name="${field}"]`)}', 'Silentbreak');`);
     } else if (/\blast.?name\b/i.test(lower)) {
       lines.push(`  await ctx.page.fill('${esc(`[name="${field}"]`)}', 'Test');`);
     } else if (/\b(email|e.?mail)\b/i.test(lower)) {
@@ -53,11 +53,11 @@ function buildFormFillCommands(form: DetectedForm): string {
     } else if (/\b(phone|tel|telephone|mobile|contact.?number)\b/i.test(lower)) {
       lines.push(`  await ctx.page.fill('${esc(`[name="${field}"]`)}', '+1-555-0100');`);
     } else if (/\b(message|comment|enquiry|description|question)\b/i.test(lower)) {
-      lines.push(`  await ctx.page.fill('${esc(`[name="${field}"]`)}', 'This is an automated test by LeadGuard monitoring. Please ignore.');`);
+      lines.push(`  await ctx.page.fill('${esc(`[name="${field}"]`)}', 'This is an automated test by Silentbreak monitoring. Please ignore.');`);
     } else if (/\bsubject\b/i.test(lower)) {
-      lines.push(`  await ctx.page.fill('${esc(`[name="${field}"]`)}', 'LeadGuard Automated Test');`);
+      lines.push(`  await ctx.page.fill('${esc(`[name="${field}"]`)}', 'Silentbreak Automated Test');`);
     } else if (/\bcompany\b/i.test(lower)) {
-      lines.push(`  await ctx.page.fill('${esc(`[name="${field}"]`)}', 'LeadGuard Test Co');`);
+      lines.push(`  await ctx.page.fill('${esc(`[name="${field}"]`)}', 'Silentbreak Test Co');`);
     }
   }
 
@@ -70,10 +70,10 @@ function generateContactFormScript(form: DetectedForm): string {
   const fillCmds = buildFormFillCommands(form);
   const submitSelector = form.submitSelector || 'button[type="submit"]';
 
-  return `// LeadGuard auto-generated: contact form test
+  return `// Silentbreak auto-generated: contact form test
 // Source: ${esc(form.pageUrl)}
 // Fields: ${esc(form.fieldNames.join(", "))}
-// Test identity: LeadGuard Test <test@leadguard-test.dev>
+// Test identity: Silentbreak Test <test@leadguard-test.dev>
 
 await ctx.page.goto('${esc(form.pageUrl)}', { waitUntil: 'networkidle' });
 
@@ -109,7 +109,7 @@ if (!success) {
 function generateBookingScript(widget: DetectedBookingWidget): string {
   const waitTarget = widget.iframeSelector || widget.inlineSelector || "iframe";
 
-  return `// LeadGuard auto-generated: booking widget check
+  return `// Silentbreak auto-generated: booking widget check
 // Provider: ${esc(widget.provider)}
 // Source: ${esc(widget.pageUrl)}
 
@@ -133,7 +133,7 @@ console.log('Booking widget (${esc(widget.provider)}) loaded and visible');`;
 }
 
 function generatePhoneScript(phone: DetectedPhone): string {
-  return `// LeadGuard auto-generated: phone link check
+  return `// Silentbreak auto-generated: phone link check
 // Number: ${esc(phone.phoneNumber)}
 // Source: ${esc(phone.pageUrl)}
 
@@ -157,7 +157,7 @@ console.log('Phone link valid: ' + href);`;
 function generateChatScript(widget: DetectedChatWidget): string {
   const waitTarget = widget.launcherSelector || `[class*="${widget.provider.toLowerCase()}"]`;
 
-  return `// LeadGuard auto-generated: chat widget check
+  return `// Silentbreak auto-generated: chat widget check
 // Provider: ${esc(widget.provider)}
 // Source: ${esc(widget.pageUrl)}
 
@@ -186,7 +186,7 @@ function generateCheckoutScript(checkout: DetectedCheckout): string {
         ? `\${new URL('${esc(checkout.targetUrl)}', ctx.page.url()).href}`
         : checkout.targetUrl;
 
-    return `// LeadGuard auto-generated: checkout flow check
+    return `// Silentbreak auto-generated: checkout flow check
 // Kind: ${esc(checkout.kind)}
 // Source: ${esc(checkout.pageUrl)}
 
@@ -213,7 +213,7 @@ if (hasCartIndicator === 0 && !bodyText.match(/cart|checkout|shop|store/i)) {
   }
 
   // CTA button on the current page (add-to-cart etc.)
-  return `// LeadGuard auto-generated: e-commerce CTA check
+  return `// Silentbreak auto-generated: e-commerce CTA check
 // Kind: ${esc(checkout.kind)}
 // Text: ${esc(checkout.ctaText || "")}
 // Source: ${esc(checkout.pageUrl)}
@@ -243,7 +243,7 @@ function generatePixelScript(pixel: DetectedPixel): string {
       ? pixel.containerId
       : pixel.accountId || pixel.provider;
 
-  return `// LeadGuard auto-generated: tracking pixel check
+  return `// Silentbreak auto-generated: tracking pixel check
 // Provider: ${esc(pixel.provider)}
 // Account/Container: ${esc(pixel.accountId || pixel.containerId || "N/A")}
 // Source: ${esc(pixel.pageUrl)}

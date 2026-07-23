@@ -226,7 +226,7 @@ export async function crawlSite(startUrl: string): Promise<CrawlResult> {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       userAgent:
-        "LeadGuard-Onboard/1.0 (compatible; onboarding; +https://leadguard.dev)",
+        "Silentbreak-Onboard/1.0 (compatible; onboarding; +https://leadguard.dev)",
       ignoreHTTPSErrors: true,
     });
 

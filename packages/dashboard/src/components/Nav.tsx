@@ -12,7 +12,7 @@ export default function Nav({ agency, onLogout }: { agency: Agency; onLogout: ()
     <nav className="bg-white border-b border-gray-200 px-4 py-2.5">
       <div className="max-w-6xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <Link to="/dashboard" className="text-lg font-bold text-blue-600">🛡️ LeadGuard</Link>
+          <Link to="/dashboard" className="text-lg font-bold text-blue-600">🛡️ Silentbreak</Link>
           <Link to="/dashboard" className={linkClass("/dashboard")}>Sites</Link>
           <Link to="/alerts" className={linkClass("/alerts")}>Alerts</Link>
           <Link to="/settings" className={linkClass("/settings")}>Settings</Link>

@@ -1,5 +1,5 @@
 /**
- * LeadGuard Reports — CLI entry point
+ * Silentbreak Reports — CLI entry point
  *
  * Generates a per-site weekly monitoring report in HTML.
  *

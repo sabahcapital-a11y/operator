@@ -1,5 +1,5 @@
 /**
- * LeadGuard API Server
+ * Silentbreak API Server
  *
  * Bun HTTP server on port 3001. All /api routes for the dashboard and free scan.
  */
@@ -589,4 +589,4 @@ const server = Bun.serve({
   },
 });
 
-console.log("[api] LeadGuard API server listening on http://127.0.0.1:3001");
+console.log("[api] Silentbreak API server listening on http://127.0.0.1:3001");

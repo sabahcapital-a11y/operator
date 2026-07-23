@@ -1,5 +1,5 @@
 /**
- * LeadGuard Runner — CLI entry point
+ * Silentbreak Runner — CLI entry point
  *
  * Usage:
  *   DATABASE_URL=... bun run src/index.ts --journey-id <uuid>

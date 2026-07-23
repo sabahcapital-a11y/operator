@@ -8,7 +8,7 @@ export default function Blog() {
       <header className="border-b border-gray-100 px-4 py-3">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <Link to="/" className="text-lg font-bold text-blue-600">
-            🛡️ LeadGuard
+            🛡️ Silentbreak
           </Link>
           <span className="text-sm text-gray-500">Blog</span>
         </div>
@@ -16,7 +16,7 @@ export default function Blog() {
 
       <main className="max-w-3xl mx-auto px-4 py-12">
         <h1 className="text-3xl font-bold tracking-tight mb-2">
-          The LeadGuard Blog
+          The Silentbreak Blog
         </h1>
         <p className="text-gray-500 mb-10">
           Insights on monitoring, analytics, and catching broken revenue paths
@@ -59,7 +59,7 @@ export default function Blog() {
       </main>
 
       <footer className="border-t border-gray-100 py-8 px-4 text-center text-sm text-gray-400">
-        &copy; {new Date().getFullYear()} LeadGuard. All rights reserved.
+        &copy; {new Date().getFullYear()} Silentbreak. All rights reserved.
       </footer>
     </div>
   );

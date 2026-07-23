@@ -1,4 +1,4 @@
-# LeadGuard — Phase 1: Deterministic Core
+# Silentbreak — Phase 1: Deterministic Core
 
 Silent funnel-failure monitoring for marketing agencies.
 

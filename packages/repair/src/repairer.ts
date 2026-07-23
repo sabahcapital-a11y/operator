@@ -178,7 +178,7 @@ export async function repairJourney(
 
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
-      userAgent: "LeadGuard-Repair/1.0 (compatible; self-healing; +https://leadguard.dev)",
+      userAgent: "Silentbreak-Repair/1.0 (compatible; self-healing; +https://leadguard.dev)",
       ignoreHTTPSErrors: true,
     });
 

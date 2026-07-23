@@ -11,7 +11,7 @@ const PRICING = [
 const FAQS = [
   {
     q: "Will test submissions pollute my client's CRM?",
-    a: "No. LeadGuard uses dedicated test identities (test@leadguard-test.dev, +1-555-0100) that are clearly marked. We also provide CRM filter instructions so you can automatically exclude our test traffic from your client's lead counts.",
+    a: "No. Silentbreak uses dedicated test identities (test@leadguard-test.dev, +1-555-0100) that are clearly marked. We also provide CRM filter instructions so you can automatically exclude our test traffic from your client's lead counts.",
   },
   {
     q: "What happens if my site has a CAPTCHA?",
@@ -23,7 +23,7 @@ const FAQS = [
   },
   {
     q: "How is this different from uptime monitoring?",
-    a: "Uptime monitoring only checks if the server responds. LeadGuard checks if the money paths actually work — forms submit, booking widgets load, checkout flows complete, and pixels fire. A server can be up while your lead form is silently broken.",
+    a: "Uptime monitoring only checks if the server responds. Silentbreak checks if the money paths actually work — forms submit, booking widgets load, checkout flows complete, and pixels fire. A server can be up while your lead form is silently broken.",
   },
   {
     q: "How often do you check my client sites?",
@@ -97,7 +97,7 @@ export default function Landing() {
       {/* Nav */}
       <nav className="border-b border-gray-100 px-4 py-3">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <span className="text-lg font-bold text-blue-600">🛡️ LeadGuard</span>
+          <span className="text-lg font-bold text-blue-600">🛡️ Silentbreak</span>
           <div className="flex gap-3">
             <Link to="/login" className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-900">Sign In</Link>
             <Link to="/register" className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">Start Free Trial</Link>
@@ -113,7 +113,7 @@ export default function Landing() {
           You just don't know it yet.
         </h1>
         <p className="text-lg text-gray-500 mb-8 max-w-2xl mx-auto">
-          LeadGuard silently tests every form, booking widget, checkout, and pixel on your client sites every night. 7-day free trial. No scripts to write.
+          Silentbreak silently tests every form, booking widget, checkout, and pixel on your client sites every night. 7-day free trial. No scripts to write.
         </p>
 
         {/* Scan form */}
@@ -313,7 +313,7 @@ export default function Landing() {
                 <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#ef4444"}}></span>
                 <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#eab308"}}></span>
                 <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#22c55e"}}></span>
-                <span className="text-xs text-gray-400 ml-4">Dashboard — LeadGuard</span>
+                <span className="text-xs text-gray-400 ml-4">Dashboard — Silentbreak</span>
               </div>
               {/* Dashboard body */}
               <div className="p-3">
@@ -409,7 +409,7 @@ export default function Landing() {
                 <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#ef4444"}}></span>
                 <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#eab308"}}></span>
                 <span className="inline-block w-2.5 h-2.5 rounded-full" style={{background:"#22c55e"}}></span>
-                <span className="text-xs text-gray-400 ml-4">Weekly Report — LeadGuard</span>
+                <span className="text-xs text-gray-400 ml-4">Weekly Report — Silentbreak</span>
               </div>
               {/* Report body */}
               <div className="p-3">
@@ -604,7 +604,7 @@ export default function Landing() {
 
       {/* Footer */}
       <footer className="border-t border-gray-100 py-8 px-4 text-center text-sm text-gray-400">
-        &copy; {new Date().getFullYear()} LeadGuard. All rights reserved.
+        &copy; {new Date().getFullYear()} Silentbreak. All rights reserved.
       </footer>
     </div>
   );

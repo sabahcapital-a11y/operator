@@ -66,7 +66,7 @@ function buildHtmlBody(input: EmailAlertInput): string {
   ${screenshotHtml}
   <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
   <p style="color:#9ca3af;font-size:12px">
-    ⏰ ${new Date().toISOString()} · LeadGuard automated monitoring
+    ⏰ ${new Date().toISOString()} · Silentbreak automated monitoring
   </p>
 </body>
 </html>`;

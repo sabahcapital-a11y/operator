@@ -1,5 +1,5 @@
 /**
- * LeadGuard Triage Agent — CLI entry point
+ * Silentbreak Triage Agent — CLI entry point
  *
  * Runs after a journey fails. Retries, cross-checks, classifies, diagnoses,
  * and triggers alert dispatch for confirmed real failures.

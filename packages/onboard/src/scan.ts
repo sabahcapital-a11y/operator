@@ -1,5 +1,5 @@
 /**
- * LeadGuard Prospect Scanner
+ * Silentbreak Prospect Scanner
  *
  * Usage:
  *   bun run packages/onboard/src/scan.ts --url https://example.com
@@ -346,7 +346,7 @@ async function scan(url: string): Promise<ScanResult> {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       userAgent:
-        "LeadGuard-Scanner/1.0 (compatible; prospecting; +https://leadguard.dev)",
+        "Silentbreak-Scanner/1.0 (compatible; prospecting; +https://leadguard.dev)",
       ignoreHTTPSErrors: true,
     });
 

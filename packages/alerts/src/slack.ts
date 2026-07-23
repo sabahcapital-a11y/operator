@@ -52,7 +52,7 @@ function formatSlackPayload(
     elements: [
       {
         type: "mrkdwn",
-        text: `⏰ ${new Date().toISOString()} · LeadGuard automated monitoring`,
+        text: `⏰ ${new Date().toISOString()} · Silentbreak automated monitoring`,
       },
     ],
   });

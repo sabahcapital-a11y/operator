@@ -3,7 +3,7 @@
 - sabahcapital-a11y/operator
 <!-- /managed:linked-repos -->
 
-# LeadGuard Workflow
+# Silentbreak Workflow
 
 ## Branch Strategy
 
