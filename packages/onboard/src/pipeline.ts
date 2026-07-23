@@ -22,7 +22,7 @@
  * Output (in --output-dir):
  *   - urls-list.json           Flat list of all client URLs
  *   - batch-results.json       Batch scan results
- *   - portfolio-audit.html     Full portfolio audit report
+ *   - portfolio-summary.html   Full portfolio audit report
  *   - {agency-slug}-draft.txt  Per-agency email drafts
  */
 
@@ -241,7 +241,7 @@ leads dried up. I see it weekly across agency portfolios.
 I run something called a Portfolio Health Audit: I scan every client site in
 your portfolio — contact forms, tracking pixels, booking widgets, checkout
 paths — and hand you a report showing exactly what's working and what isn't,
-with screenshots. It's $500 for up to 20 sites, $900 for up to 50. Many
+with screenshots. It's $750 for up to 20 sites, $1,400 for up to 50. Many
 agencies resell it to their clients at $1,500+ and keep the margin. It's a
 snapshot of today — things break again, which is why I also offer ongoing
 nightly monitoring after.
@@ -295,7 +295,7 @@ async function main() {
 
   const urlsListPath = resolve(resolvedOutputDir, "urls-list.json");
   const batchResultsPath = resolve(resolvedOutputDir, "batch-results.json");
-  const reportPath = resolve(resolvedOutputDir, "portfolio-audit.html");
+  const reportPath = resolve(resolvedOutputDir, "portfolio-summary.html");
 
   // ── Step 1: Read and validate leads JSON ────────────────────────────────
   console.error("[pipeline] Step 1: Reading leads JSON...");
@@ -385,8 +385,8 @@ async function main() {
       "packages/onboard/src/generate-report.ts",
       "--input",
       batchResultsPath,
-      "--output",
-      reportPath,
+      "--output-dir",
+      resolvedOutputDir,
       "--agency-name",
       "Portfolio Health Audit",
     ],
