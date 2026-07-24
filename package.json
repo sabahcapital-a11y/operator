@@ -23,6 +23,7 @@
     "pipeline": "bun run --cwd packages/onboard pipeline",
     "batch-scan": "bun run --cwd packages/onboard batch-scan",
     "generate-report": "bun run --cwd packages/onboard generate-report",
+    "cost-report": "bun run --cwd packages/onboard cost-report",
     "publish": "bun run build && bun run serve.ts",
     "go-live": "bash go-live.sh"
   },

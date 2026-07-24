@@ -7,6 +7,7 @@
  * Usage:
  *   bun run packages/onboard/src/batch-scan.ts --input urls.json --output results.json
  *   bun run packages/onboard/src/batch-scan.ts --input urls.csv --output results.csv --format csv
+ *   bun run packages/onboard/src/batch-scan.ts --input urls.json --output results.json --max-runtime 120 --max-pages 50 --max-retries 2 --daily-limit 100 --customer acme-agency
  *
  * Input format (JSON):
  *   ["https://client1.com", "https://client2.com"]
@@ -17,16 +18,25 @@
  *   https://client1.com,Client One
  *   https://client2.com,Client Two
  *
+ * Cost Controls:
+ *   --max-runtime <seconds>   Max wall time per site (default: 120)
+ *   --max-pages <n>           Max pages crawled per site (default: 50)
+ *   --max-retries <n>         Max retries on failed scans (default: 2)
+ *   --daily-limit <n>         Max scans per day, exits if exceeded
+ *   --customer <id>           Tag scans with customer ID for cost tracking
+ *
  * Scans run sequentially (no parallelism — browser is resource-heavy).
  * Progress is printed to stderr. Valid JSON/CSV goes to the output file.
+ * Scan costs are logged to /home/team/shared/costs/scan-costs.jsonl.
  *
  * Exit codes:
  *   0 — batch complete (individual scan failures are reported in results)
+ *   0 — also exits 0 when daily limit is hit (graceful pause, not an error)
  *   1 — fatal error (invalid input, missing file)
  */
 
 import { parseArgs } from "util";
-import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, appendFileSync, existsSync } from "fs";
 import { resolve as resolvePath, dirname, basename, extname } from "path";
 import { spawn } from "child_process";
 
@@ -42,12 +52,13 @@ interface BatchSite {
 interface BatchScanResult {
   label: string;
   url: string;
-  status: "success" | "failed";
+  status: "success" | "failed" | "capped";
   scan?: unknown;
   error?: string;
   errorType?: string;
   durationMs?: number;
   detailFile?: string;
+  retriesUsed?: number;
 }
 
 interface IssueSummary {
@@ -72,12 +83,29 @@ interface BatchOutput {
   };
 }
 
+interface ScanCostEntry {
+  url: string;
+  label: string;
+  customerId?: string;
+  timestamp: string;
+  computeSeconds: number;
+  pagesCrawled: number;
+  browserLaunches: number;
+  status: "success" | "failed" | "capped";
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Constants
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/** Per-site timeout in ms (2 minutes — generous for slow sites but won't hang). */
-const PER_SITE_TIMEOUT_MS = 120_000;
+const COST_LOG_PATH = "/home/team/shared/costs/scan-costs.jsonl";
+
+/** Default per-site timeout in ms. */
+const DEFAULT_MAX_RUNTIME_SEC = 120;
+/** Default max pages per site. */
+const DEFAULT_MAX_PAGES = 50;
+/** Default max retries for failed scans. */
+const DEFAULT_MAX_RETRIES = 2;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CSV Parser (dependency-free)
@@ -268,11 +296,51 @@ function classifyError(errMsg: string): string {
   return "unknown";
 }
 
+/**
+ * Count scans already performed today by reading the cost log.
+ * Returns the number of entries for today's date.
+ */
+function countScansToday(): number {
+  if (!existsSync(COST_LOG_PATH)) return 0;
+
+  const today = new Date();
+  const datePrefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  try {
+    const raw = readFileSync(COST_LOG_PATH, "utf-8");
+    const lines = raw.split("\n").filter((line) => line.trim() !== "");
+    let count = 0;
+    for (const line of lines) {
+      if (line.includes(`"${datePrefix}`)) count++;
+    }
+    return count;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Append a scan cost entry to the JSONL log file.
+ */
+function logScanCost(entry: ScanCostEntry): void {
+  try {
+    appendFileSync(COST_LOG_PATH, JSON.stringify(entry) + "\n", "utf-8");
+  } catch (err: any) {
+    console.error(`[batch] Warning: Could not write cost log: ${err.message}`);
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Single-site runner
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function runScan(site: BatchSite): Promise<BatchScanResult> {
+interface RunScanOptions {
+  maxRuntimeSec: number;
+  maxPages: number;
+  customerId?: string;
+}
+
+function runScan(site: BatchSite, options: RunScanOptions): Promise<BatchScanResult> {
   return new Promise((resolvePromise) => {
     const startTime = Date.now();
     let stdout = "";
@@ -282,15 +350,20 @@ function runScan(site: BatchSite): Promise<BatchScanResult> {
     // Resolve repo root: batch-scan.ts is in packages/onboard/src/, repo root is 3 levels up
     const repoRoot = resolvePath(import.meta.dir, "../../..");
 
-    const child = spawn(
-      "bun",
-      ["run", "packages/onboard/src/scan.ts", "--url", site.url],
-      {
-        cwd: repoRoot,
-        stdio: ["ignore", "pipe", "pipe"],
-        env: { ...process.env },
-      }
-    );
+    const args = [
+      "run", "packages/onboard/src/scan.ts",
+      "--url", site.url,
+      "--max-pages", String(options.maxPages),
+      "--max-runtime", String(options.maxRuntimeSec),
+    ];
+
+    const child = spawn("bun", args, {
+      cwd: repoRoot,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env },
+    });
+
+    const perSiteTimeoutMs = (options.maxRuntimeSec + 10) * 1000; // +10s grace
 
     const timer = setTimeout(() => {
       timedOut = true;
@@ -301,7 +374,7 @@ function runScan(site: BatchSite): Promise<BatchScanResult> {
           child.kill("SIGKILL");
         }
       }, 2000);
-    }, PER_SITE_TIMEOUT_MS);
+    }, perSiteTimeoutMs);
 
     child.stdout?.on("data", (data: Buffer) => {
       stdout += data.toString();
@@ -314,14 +387,15 @@ function runScan(site: BatchSite): Promise<BatchScanResult> {
     child.on("close", (code) => {
       clearTimeout(timer);
       const durationMs = Date.now() - startTime;
+      const computeSeconds = Math.round(durationMs / 100) / 10;
 
       if (timedOut) {
         resolvePromise({
           label: site.label,
           url: site.url,
-          status: "failed",
-          error: `Timeout after ${PER_SITE_TIMEOUT_MS / 1000}s`,
-          errorType: "timeout",
+          status: "capped",
+          error: `Runtime cap reached: exceeded ${options.maxRuntimeSec}s`,
+          errorType: "runtime-cap",
           durationMs,
         });
         return;
@@ -348,6 +422,21 @@ function runScan(site: BatchSite): Promise<BatchScanResult> {
       // Parse stdout as JSON
       try {
         const parsed = JSON.parse(stdout.trim());
+        // Check if pages-crawled cap was hit (pagesCrawled >= maxPages and there might have been more)
+        const pagesCrawled = (parsed as any).pagesCrawled ?? 0;
+        if (pagesCrawled >= options.maxPages) {
+          resolvePromise({
+            label: site.label,
+            url: site.url,
+            status: "capped",
+            scan: parsed,
+            error: `Pages cap reached: ${pagesCrawled} pages (limit: ${options.maxPages})`,
+            errorType: "pages-cap",
+            durationMs,
+          });
+          return;
+        }
+
         resolvePromise({
           label: site.label,
           url: site.url,
@@ -449,6 +538,11 @@ async function main() {
       input: { type: "string" },
       output: { type: "string" },
       format: { type: "string" },
+      "max-runtime": { type: "string" },
+      "max-pages": { type: "string" },
+      "max-retries": { type: "string" },
+      "daily-limit": { type: "string" },
+      customer: { type: "string" },
     },
     strict: true,
     allowPositionals: false,
@@ -458,11 +552,55 @@ async function main() {
   const outputPath = values.output;
   const format = values.format ?? "json";
 
+  // Parse cost control options
+  const maxRuntimeSec = values["max-runtime"]
+    ? parseInt(values["max-runtime"], 10)
+    : DEFAULT_MAX_RUNTIME_SEC;
+  const maxPages = values["max-pages"]
+    ? parseInt(values["max-pages"], 10)
+    : DEFAULT_MAX_PAGES;
+  const maxRetries = values["max-retries"]
+    ? parseInt(values["max-retries"], 10)
+    : DEFAULT_MAX_RETRIES;
+  const dailyLimit = values["daily-limit"]
+    ? parseInt(values["daily-limit"], 10)
+    : undefined;
+  const customerId = values.customer;
+
   if (!inputPath || !outputPath) {
-    console.error("Usage: bun run batch-scan --input <urls.json|csv> --output <results.json|csv> [--format csv|json]");
+    console.error("Usage: bun run batch-scan --input <urls.json|csv> --output <results.json|csv> [--format csv|json] [--max-runtime <s>] [--max-pages <n>] [--max-retries <n>] [--daily-limit <n>] [--customer <id>]");
     console.error("  e.g.  bun run batch-scan --input urls.json --output results.json");
-    console.error("  e.g.  bun run batch-scan --input urls.csv --output results.csv --format csv");
+    console.error("  e.g.  bun run batch-scan --input urls.csv --output results.csv --format csv --max-runtime 120 --max-pages 50");
     process.exit(1);
+  }
+
+  // Validate numeric options
+  if (isNaN(maxRuntimeSec) || maxRuntimeSec < 1) {
+    console.error("Error: --max-runtime must be a positive integer");
+    process.exit(1);
+  }
+  if (isNaN(maxPages) || maxPages < 1) {
+    console.error("Error: --max-pages must be a positive integer");
+    process.exit(1);
+  }
+  if (isNaN(maxRetries) || maxRetries < 0) {
+    console.error("Error: --max-retries must be a non-negative integer");
+    process.exit(1);
+  }
+  if (dailyLimit !== undefined && (isNaN(dailyLimit) || dailyLimit < 1)) {
+    console.error("Error: --daily-limit must be a positive integer");
+    process.exit(1);
+  }
+
+  // ── Check daily limit before starting ───────────────────────────────────
+  if (dailyLimit !== undefined) {
+    const scansToday = countScansToday();
+    if (scansToday >= dailyLimit) {
+      console.error(`Daily scan limit (${dailyLimit}) reached. Pausing non-critical scans.`);
+      console.error(`(${scansToday} scans already completed today.)`);
+      process.exit(0);
+    }
+    console.error(`[batch] Daily limit: ${dailyLimit} (${scansToday} already completed today)`);
   }
 
   // ── Determine input format ──────────────────────────────────────────────
@@ -481,7 +619,6 @@ async function main() {
   // ── Prepare output directory for per-site detail files ──────────────────
   const resolvedOutput = resolvePath(outputPath);
   const outputDir = dirname(resolvedOutput);
-  // Ensure output directory exists
   try {
     mkdirSync(outputDir, { recursive: true });
   } catch {
@@ -518,28 +655,83 @@ async function main() {
   console.error(`[batch] Input:  ${resolvedInput} (${isCSV ? "CSV" : "JSON"})`);
   console.error(`[batch] Output: ${resolvedOutput}`);
   console.error(`[batch] Per-site detail files: ${outputDir}/`);
+  console.error(`[batch] Caps: max-runtime=${maxRuntimeSec}s, max-pages=${maxPages}, max-retries=${maxRetries}`);
+  if (customerId) {
+    console.error(`[batch] Customer: ${customerId}`);
+  }
 
   const batchStartTime = new Date();
   const results: BatchScanResult[] = [];
   let failed = 0;
 
+  const scanOptions: RunScanOptions = {
+    maxRuntimeSec,
+    maxPages,
+    customerId,
+  };
+
   for (let i = 0; i < sites.length; i++) {
     const site = sites[i];
     const position = `${i + 1}/${totalSites}`;
 
-    const startTime = Date.now();
-    const result = await runScan(site);
+    // ── Check daily limit before each scan ──────────────────────────────────
+    if (dailyLimit !== undefined) {
+      const scansToday = countScansToday();
+      if (scansToday >= dailyLimit) {
+        console.error(`[batch] Daily scan limit (${dailyLimit}) reached. Pausing non-critical scans.`);
+        break;
+      }
+    }
+
+    const scanStartTime = Date.now();
+    let result: BatchScanResult;
+    let retriesUsed = 0;
+
+    // ── Attempt scan with retries ────────────────────────────────────────
+    while (true) {
+      result = await runScan(site, scanOptions);
+
+      // If success or capped, don't retry
+      if (result.status === "success" || result.status === "capped") {
+        result.retriesUsed = retriesUsed;
+        break;
+      }
+
+      // If failed but haven't exhausted retries, try again
+      if (retriesUsed < maxRetries) {
+        retriesUsed++;
+        console.error(`[batch] ${position}: ${site.label} — retry ${retriesUsed}/${maxRetries} after: ${result.error}`);
+        continue;
+      }
+
+      result.retriesUsed = retriesUsed;
+      break;
+    }
+
+    const totalDurationMs = Date.now() - scanStartTime;
+    result.durationMs = totalDurationMs;
+
+    // ── Log scan cost ──────────────────────────────────────────────────────
+    const scanData = result.scan as Record<string, unknown> | undefined;
+    const costEntry: ScanCostEntry = {
+      url: site.url,
+      label: site.label,
+      customerId,
+      timestamp: new Date().toISOString(),
+      computeSeconds: Math.round(totalDurationMs / 100) / 10,
+      pagesCrawled: (scanData?.pagesCrawled as number) ?? 0,
+      browserLaunches: (scanData?.browserLaunches as number) ?? (result.status === "success" ? 1 : 0),
+      status: result.status,
+    };
+    logScanCost(costEntry);
 
     // ── Save per-site detail file ────────────────────────────────────────
     const sanitized = sanitizeForFilename(site.label);
     const detailFileName = `${sanitized}-scan.json`;
     const detailFilePath = resolvePath(outputDir, detailFileName);
 
-    // Merge duration into result for detail file and CSV
-    result.durationMs = Date.now() - startTime;
     result.detailFile = detailFileName;
 
-    // Save full scan result to detail file
     try {
       writeFileSync(
         detailFilePath,
@@ -551,6 +743,7 @@ async function main() {
             error: result.error,
             errorType: result.errorType,
             durationMs: result.durationMs,
+            retriesUsed: result.retriesUsed,
             scan: result.scan,
           },
           null,
@@ -564,11 +757,15 @@ async function main() {
 
     results.push(result);
 
-    if (result.status === "failed") {
+    if (result.status === "capped") {
+      console.error(
+        `[batch] ${position}: ${site.label} — CAPPED: ${result.error}`
+      );
+    } else if (result.status === "failed") {
       failed++;
       const reason = result.errorType ? ` (${result.errorType})` : "";
       console.error(
-        `[batch] ${position}: ${site.label} — TIMEOUT${reason}`
+        `[batch] ${position}: ${site.label} — FAILED${reason}`
       );
     } else {
       const scan = result.scan as Record<string, unknown> | undefined;
@@ -629,6 +826,7 @@ async function main() {
   }
   console.error(`  Output:      ${resolvedOutput}`);
   console.error(`  Details:     ${outputDir}/`);
+  console.error(`  Cost log:    ${COST_LOG_PATH}`);
   console.error("═══════════════════════════════════════════");
 
   process.exit(0);

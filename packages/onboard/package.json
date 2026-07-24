@@ -9,7 +9,8 @@
     "scan": "bun run src/scan.ts",
     "batch-scan": "bun run src/batch-scan.ts",
     "generate-report": "bun run src/generate-report.ts",
-    "pipeline": "bun run src/pipeline.ts"
+    "pipeline": "bun run src/pipeline.ts",
+    "cost-report": "bun run src/cost-report.ts"
   },
   "dependencies": {
     "@leadguard/db": "workspace:*",

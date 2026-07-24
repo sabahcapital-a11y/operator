@@ -87,6 +87,7 @@ interface ScanResult {
   url: string;
   scanTime: string;
   pagesCrawled: number;
+  browserLaunches: number;
   findings: {
     contactForms: ContactFormFinding[];
     bookingWidgets: BookingWidgetFinding[];
@@ -107,9 +108,9 @@ interface ScanResult {
 // Constants
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const MAX_PAGES = 10;
+const DEFAULT_MAX_PAGES = 10;
 const PAGE_TIMEOUT_MS = 15_000;
-const SCAN_TIMEOUT_MS = 30_000;
+const DEFAULT_SCAN_TIMEOUT_MS = 30_000;
 
 // Cookie consent selectors (same as crawler.ts)
 const COOKIE_SELECTORS: Array<{
@@ -290,7 +291,7 @@ async function extractInternalLinks(
 // Core scan logic
 // ═══════════════════════════════════════════════════════════════════════════════
 
-async function scan(url: string): Promise<ScanResult> {
+async function scan(url: string, maxPages: number): Promise<ScanResult> {
   const startTime = new Date();
   const issues: ScanIssue[] = [];
   const visited = new Set<string>();
@@ -351,7 +352,7 @@ async function scan(url: string): Promise<ScanResult> {
     });
 
     // ── Crawl loop ────────────────────────────────────────────────────────
-    while (toVisit.length > 0 && visited.size < MAX_PAGES) {
+    while (toVisit.length > 0 && visited.size < maxPages) {
       const currentUrl = toVisit.shift()!;
       if (visited.has(currentUrl)) continue;
       visited.add(currentUrl);
@@ -559,6 +560,7 @@ async function scan(url: string): Promise<ScanResult> {
       url: startUrl,
       scanTime: startTime.toISOString(),
       pagesCrawled: pagesCrawled.length,
+      browserLaunches: 1,
       findings: {
         contactForms,
         bookingWidgets,
@@ -613,16 +615,21 @@ async function main() {
     args: process.argv.slice(2),
     options: {
       url: { type: "string" },
+      "max-pages": { type: "string" },
+      "max-runtime": { type: "string" },
     },
     strict: true,
     allowPositionals: false,
   });
 
   const url = values.url;
+  const maxPages = values["max-pages"] ? parseInt(values["max-pages"], 10) : DEFAULT_MAX_PAGES;
+  const scanTimeoutMs = values["max-runtime"] ? parseInt(values["max-runtime"], 10) * 1000 : DEFAULT_SCAN_TIMEOUT_MS;
 
   if (!url) {
-    console.error("Usage: bun run scan --url <url>");
+    console.error("Usage: bun run scan --url <url> [--max-pages <n>] [--max-runtime <seconds>]");
     console.error("  e.g.  bun run scan --url https://example.com");
+    console.error("  e.g.  bun run scan --url https://example.com --max-pages 50 --max-runtime 120");
     process.exit(1);
   }
 
@@ -638,13 +645,22 @@ async function main() {
     process.exit(1);
   }
 
+  if (isNaN(maxPages) || maxPages < 1) {
+    console.error(`Invalid --max-pages value: ${values["max-pages"]}. Must be a positive integer.`);
+    process.exit(1);
+  }
+  if (isNaN(scanTimeoutMs) || scanTimeoutMs < 1000) {
+    console.error(`Invalid --max-runtime value: ${values["max-runtime"]}. Must be at least 1 second.`);
+    process.exit(1);
+  }
+
   console.error(`[scan] Starting prospect scan of: ${url}`);
-  console.error(`[scan] Max pages: ${MAX_PAGES}, timeout: ${SCAN_TIMEOUT_MS / 1000}s`);
+  console.error(`[scan] Max pages: ${maxPages}, timeout: ${scanTimeoutMs / 1000}s`);
 
   try {
     const result = await withTimeout(
-      scan(url),
-      SCAN_TIMEOUT_MS,
+      scan(url, maxPages),
+      scanTimeoutMs,
       "Full site scan"
     );
     // Output JSON to stdout
