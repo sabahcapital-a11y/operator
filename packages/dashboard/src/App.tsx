@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api, getToken, clearToken } from "./api";
 import Landing from "./pages/Landing";
+import Scan from "./pages/Scan";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -63,6 +64,7 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/" element={agency ? <Navigate to="/dashboard" /> : <Landing />} />
+        <Route path="/scan" element={<Scan />} />
         <Route path="/login" element={agency ? <Navigate to="/dashboard" /> : <Login onLogin={handleLogin} />} />
         <Route path="/register" element={agency ? <Navigate to="/dashboard" /> : <Register onLogin={handleLogin} />} />
 

@@ -5,7 +5,7 @@
  */
 
 import { getDb, agencies, sites, journeys, runs, alerts, eq, and, desc, count, gte, lte, sql } from "@leadguard/db";
-import { crawlSite } from "@leadguard/onboard/src/crawler";
+import { crawlSite, type CrawlProgress } from "@leadguard/onboard/src/crawler";
 import { generateScripts } from "@leadguard/onboard/src/script-generator";
 import { buildReportData } from "@leadguard/reports/src/report-builder";
 import { renderReportHtml } from "@leadguard/reports/src/html-template";
@@ -13,6 +13,8 @@ import { loadWhiteLabelConfig } from "@leadguard/reports/src/white-label";
 import * as bcrypt from "bcryptjs";
 import Stripe from "stripe";
 import { verifyEmail, isSafeToSend } from "./email-verify";
+import * as fs from "fs";
+import * as path from "path";
 
 // ── JWT helpers (zero-dependency) ──────────────────────────────────
 
@@ -96,6 +98,29 @@ function error(msg: string, status = 400) {
 
 async function parseBody(req: Request): Promise<any> {
   try { return await req.json(); } catch { return {}; }
+}
+
+// ── JSONL logging helpers ─────────────────────────────────────────────
+
+const LEADS_DIR = "/home/team/shared/leads";
+const SCAN_LOG_PATH = path.join(LEADS_DIR, "scan-log.jsonl");
+const SCAN_LEADS_PATH = path.join(LEADS_DIR, "scan-leads.jsonl");
+
+function ensureDir(dir: string) {
+  try { fs.mkdirSync(dir, { recursive: true }); } catch {}
+}
+
+function appendJsonLine(filePath: string, obj: Record<string, unknown>) {
+  ensureDir(path.dirname(filePath));
+  fs.appendFileSync(filePath, JSON.stringify(obj) + "\n");
+}
+
+function logScan(entry: { timestamp: string; url: string; email: string | null; ip: string; findings_count: number; issues_count: number; high_severity_count: number }) {
+  appendJsonLine(SCAN_LOG_PATH, entry);
+}
+
+function logScanLead(entry: { email: string; url: string; timestamp: string; ip: string; findings_summary: string }) {
+  appendJsonLine(SCAN_LEADS_PATH, entry);
 }
 
 async function authMiddleware(req: Request): Promise<string | null> {
@@ -344,32 +369,180 @@ async function handleScan(req: Request): Promise<Response> {
   if (!checkScanRateLimit(ip)) return error("Rate limit exceeded. Please try again later.", 429);
 
   const body = await parseBody(req);
-  const { url } = body;
+  const { url, email } = body;
   if (!url) return error("url is required");
 
   let parsedUrl: URL;
   try { parsedUrl = new URL(url); } catch { return error("Invalid URL"); }
 
-  const crawlResult = await crawlSite(url);
-  const generatedJourneys = generateScripts(crawlResult.forms, crawlResult.bookings, crawlResult.phones, crawlResult.chats, crawlResult.checkouts, crawlResult.pixels);
+  // Check if client wants SSE streaming
+  const wantsStream = req.headers.get("accept")?.includes("text/event-stream");
 
-  const pathsFound = {
-    contactForms: crawlResult.forms.length,
-    bookingWidgets: crawlResult.bookings.length,
-    phoneLinks: crawlResult.phones.length,
-    chatWidgets: crawlResult.chats.length,
-    checkoutPaths: crawlResult.checkouts.length,
-    trackingPixels: crawlResult.pixels.length,
-  };
-  const totalPaths = generatedJourneys.length;
+  if (!wantsStream) {
+    // Non-streaming path (backward compatible)
+    const crawlResult = await crawlSite(url);
+    const generatedJourneys = generateScripts(crawlResult.forms, crawlResult.bookings, crawlResult.phones, crawlResult.chats, crawlResult.checkouts, crawlResult.pixels);
+
+    const pathsFound = {
+      contactForms: crawlResult.forms.length,
+      bookingWidgets: crawlResult.bookings.length,
+      phoneLinks: crawlResult.phones.length,
+      chatWidgets: crawlResult.chats.length,
+      checkoutPaths: crawlResult.checkouts.length,
+      trackingPixels: crawlResult.pixels.length,
+    };
+    const totalPaths = generatedJourneys.length;
+    const highSeverity = crawlResult.warnings.filter(w =>
+      /broken|500|error|failure|down|crash/i.test(w)
+    ).length;
+
+    // Log scan
+    logScan({
+      timestamp: new Date().toISOString(),
+      url: crawlResult.siteUrl,
+      email: email || null,
+      ip,
+      findings_count: totalPaths,
+      issues_count: crawlResult.warnings.length,
+      high_severity_count: highSeverity,
+    });
+
+    // Log email capture if provided
+    if (email) {
+      logScanLead({
+        email,
+        url: crawlResult.siteUrl,
+        timestamp: new Date().toISOString(),
+        ip,
+        findings_summary: `${totalPaths} paths found, ${crawlResult.warnings.length} issues`,
+      });
+    }
+
+    return json({
+      url: crawlResult.siteUrl,
+      siteName: crawlResult.siteName || parsedUrl.hostname,
+      pagesCrawled: crawlResult.pagesCrawled.length,
+      pathsFound,
+      totalPaths,
+      warnings: crawlResult.warnings,
+      emailCaptured: !!email,
+    });
+  }
+
+  // ── SSE streaming path ────────────────────────────────────────────────
+
+  const encoder = new TextEncoder();
+  let bodyClosed = false;
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (event: string, data: unknown) => {
+        if (bodyClosed) return;
+        try {
+          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+        } catch {
+          bodyClosed = true;
+        }
+      };
+
+      try {
+        const crawlResult = await crawlSite(url, (progress: CrawlProgress) => {
+          send("progress", progress);
+        });
+
+        const generatedJourneys = generateScripts(
+          crawlResult.forms, crawlResult.bookings,
+          crawlResult.phones, crawlResult.chats,
+          crawlResult.checkouts, crawlResult.pixels
+        );
+
+        const pathsFound = {
+          contactForms: crawlResult.forms.length,
+          bookingWidgets: crawlResult.bookings.length,
+          phoneLinks: crawlResult.phones.length,
+          chatWidgets: crawlResult.chats.length,
+          checkoutPaths: crawlResult.checkouts.length,
+          trackingPixels: crawlResult.pixels.length,
+        };
+        const totalPaths = generatedJourneys.length;
+        const highSeverity = crawlResult.warnings.filter(w =>
+          /broken|500|error|failure|down|crash/i.test(w)
+        ).length;
+
+        // Log scan
+        logScan({
+          timestamp: new Date().toISOString(),
+          url: crawlResult.siteUrl,
+          email: email || null,
+          ip,
+          findings_count: totalPaths,
+          issues_count: crawlResult.warnings.length,
+          high_severity_count: highSeverity,
+        });
+
+        // Log email capture if provided
+        if (email) {
+          logScanLead({
+            email,
+            url: crawlResult.siteUrl,
+            timestamp: new Date().toISOString(),
+            ip,
+            findings_summary: `${totalPaths} paths found, ${crawlResult.warnings.length} issues`,
+          });
+        }
+
+        const result = {
+          url: crawlResult.siteUrl,
+          siteName: crawlResult.siteName || parsedUrl.hostname,
+          pagesCrawled: crawlResult.pagesCrawled.length,
+          pathsFound,
+          totalPaths,
+          warnings: crawlResult.warnings,
+          emailCaptured: !!email,
+        };
+
+        send("result", result);
+      } catch (err: any) {
+        send("error", { message: err.message || "Scan failed" });
+      } finally {
+        if (!bodyClosed) {
+          try { controller.close(); } catch {}
+        }
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
+}
+
+// ── Email capture for scan leads ────────────────────────────────────
+
+async function handleScanEmailCapture(req: Request): Promise<Response> {
+  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  const body = await parseBody(req);
+  const { email, url, findingsSummary } = body;
+
+  if (!email) return error("email is required");
+  if (!url) return error("url is required");
+
+  logScanLead({
+    email,
+    url,
+    timestamp: new Date().toISOString(),
+    ip,
+    findings_summary: findingsSummary || "No summary provided",
+  });
 
   return json({
-    url: crawlResult.siteUrl,
-    siteName: crawlResult.siteName || parsedUrl.hostname,
-    pagesCrawled: crawlResult.pagesCrawled.length,
-    pathsFound,
-    totalPaths,
-    warnings: crawlResult.warnings,
+    ok: true,
+    message: "We'll follow up in a few days with tips for keeping your site healthy.",
   });
 }
 
@@ -508,6 +681,8 @@ const routes: { method: string; pattern: RegExp; handler: Handler; auth: boolean
   { method: "POST", pattern: /^\/api\/auth\/login$/, handler: (req) => handleLogin(req), auth: false },
   // Public scan
   { method: "POST", pattern: /^\/api\/scan$/, handler: handleScan, auth: false },
+  // Scan email capture
+  { method: "POST", pattern: /^\/api\/scan\/capture-email$/, handler: handleScanEmailCapture, auth: false },
   // Webhook
   { method: "POST", pattern: /^\/api\/webhooks\/stripe$/, handler: handleStripeWebhook, auth: false },
   // Sites

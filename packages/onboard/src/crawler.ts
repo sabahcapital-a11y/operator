@@ -30,6 +30,13 @@ export interface CrawlResult {
   warnings: string[];
 }
 
+/** Progress events emitted during a crawl. */
+export type CrawlProgress =
+  | { phase: "start"; url: string }
+  | { phase: "crawling"; page: number; totalEstimate: number }
+  | { phase: "detecting"; page: number; step: string }
+  | { phase: "done"; summary: { pagesCrawled: number; forms: number; bookings: number; phones: number; chats: number; checkouts: number; pixels: number; warnings: number } };
+
 // ── Cookie consent dismissal ─────────────────────────────────────────────────────
 
 // Reuse the same selectors from the runner package's cookie-banner.ts
@@ -183,8 +190,12 @@ async function extractInternalLinks(page: Page, baseHostname: string): Promise<s
 
 const MAX_PAGES = 10;
 const PAGE_TIMEOUT_MS = 20_000;
+const DETECTION_STEPS = ["forms", "bookings", "phones", "chats", "checkouts", "pixels"] as const;
 
-export async function crawlSite(startUrl: string): Promise<CrawlResult> {
+export async function crawlSite(
+  startUrl: string,
+  onProgress?: (evt: CrawlProgress) => void
+): Promise<CrawlResult> {
   const warnings: string[] = [];
   const visited = new Set<string>();
   const toVisit: string[] = [];
@@ -209,6 +220,8 @@ export async function crawlSite(startUrl: string): Promise<CrawlResult> {
 
   const baseHostname = new URL(startUrlNormalized).hostname;
   toVisit.push(startUrlNormalized);
+
+  onProgress?.({ phase: "start", url: startUrlNormalized });
 
   let browser: Browser | null = null;
 
@@ -253,15 +266,18 @@ export async function crawlSite(startUrl: string): Promise<CrawlResult> {
 
         pagesCrawled.push(currentUrl);
 
+        // ── Progress: crawling ──────────────────────────────────────────
+        onProgress?.({ phase: "crawling", page: visited.size, totalEstimate: Math.max(visited.size, toVisit.length + visited.size) });
+
         // ── Run all detectors ────────────────────────────────────────────
         const [forms, bookings, phones, chats, checkouts, pixels] =
           await Promise.all([
-            detectForms(page, currentUrl),
-            detectBookingWidgets(page, currentUrl),
-            detectPhones(page, currentUrl),
-            detectChatWidgets(page, currentUrl),
-            detectCheckoutPaths(page, currentUrl),
-            detectPixels(page, currentUrl),
+            detectForms(page, currentUrl).then(r => { onProgress?.({ phase: "detecting", page: visited.size, step: "forms" }); return r; }),
+            detectBookingWidgets(page, currentUrl).then(r => { onProgress?.({ phase: "detecting", page: visited.size, step: "bookings" }); return r; }),
+            detectPhones(page, currentUrl).then(r => { onProgress?.({ phase: "detecting", page: visited.size, step: "phones" }); return r; }),
+            detectChatWidgets(page, currentUrl).then(r => { onProgress?.({ phase: "detecting", page: visited.size, step: "chats" }); return r; }),
+            detectCheckoutPaths(page, currentUrl).then(r => { onProgress?.({ phase: "detecting", page: visited.size, step: "checkouts" }); return r; }),
+            detectPixels(page, currentUrl).then(r => { onProgress?.({ phase: "detecting", page: visited.size, step: "pixels" }); return r; }),
           ]);
 
         allForms.push(...forms);
@@ -333,6 +349,20 @@ export async function crawlSite(startUrl: string): Promise<CrawlResult> {
       if (seenPixels.has(key)) return false;
       seenPixels.add(key);
       return true;
+    });
+
+    onProgress?.({
+      phase: "done",
+      summary: {
+        pagesCrawled: pagesCrawled.length,
+        forms: allForms.length,
+        bookings: allBookings.length,
+        phones: allPhones.length,
+        chats: allChats.length,
+        checkouts: allCheckouts.length,
+        pixels: dedupedPixels.length,
+        warnings: warnings.length,
+      },
     });
 
     return {

@@ -51,7 +51,41 @@ export const api = {
   acknowledgeAlert: (id: string) => request(`/alerts/${id}/acknowledge`, { method: "POST" }),
 
   // Scan
-  scan: (url: string) => request<any>("/scan", { method: "POST", body: { url } }),
+  scan: (url: string, email?: string) => request<any>("/scan", { method: "POST", body: { url, email } }),
+
+  // Scan with SSE streaming — returns controller + async reader factory
+  scanStream: (url: string, email?: string): { getReader: () => Promise<ReadableStreamDefaultReader<Uint8Array>>; abort: () => void } => {
+    const controller = new AbortController();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Accept": "text/event-stream",
+    };
+    const token = localStorage.getItem("lg_token");
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    let readerPromise: Promise<ReadableStreamDefaultReader<Uint8Array>> | null = null;
+
+    return {
+      abort: () => controller.abort(),
+      getReader: async () => {
+        if (readerPromise) return readerPromise;
+        readerPromise = fetch(`${BASE}/scan`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ url, email }),
+          signal: controller.signal,
+        }).then(res => {
+          if (!res.ok) throw new Error(`Scan failed: ${res.status}`);
+          return res.body!.getReader();
+        });
+        return readerPromise;
+      },
+    };
+  },
+
+  // Capture email after scan
+  captureEmail: (email: string, url: string, findingsSummary: string) =>
+    request<any>("/scan/capture-email", { method: "POST", body: { email, url, findingsSummary } }),
 
   // Reports
   getReport: (siteId: string, period = "7d") => request<string>(`/reports/${siteId}?period=${period}`),

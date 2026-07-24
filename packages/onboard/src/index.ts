@@ -221,7 +221,7 @@ main().catch((err) => {
 // ── Re-exports for other workspace packages (repair agent, etc.) ──────────
 
 export { crawlSite } from "./crawler";
-export type { CrawlResult } from "./crawler";
+export type { CrawlResult, CrawlProgress } from "./crawler";
 
 export { generateScripts } from "./script-generator";
 export type { GeneratedJourney } from "./script-generator";
