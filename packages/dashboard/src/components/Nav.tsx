@@ -16,6 +16,7 @@ export default function Nav({ agency, onLogout }: { agency: Agency; onLogout: ()
           <Link to="/dashboard" className={linkClass("/dashboard")}>Sites</Link>
           <Link to="/alerts" className={linkClass("/alerts")}>Alerts</Link>
           <Link to="/settings" className={linkClass("/settings")}>Settings</Link>
+          <Link to="/admin" className={linkClass("/admin")}>Admin</Link>
           <Link to="/blog" className={linkClass("/blog")}>Blog</Link>
         </div>
         <div className="flex items-center gap-4">

@@ -671,6 +671,149 @@ async function handleStripeWebhook(req: Request): Promise<Response> {
   return json({ received: true });
 }
 
+// ── Admin routes ─────────────────────────────────────────────────────
+
+const ADMIN_CUSTOMERS_PATH = "/home/team/shared/admin/customers.json";
+const ADMIN_REVIEW_LOG_PATH = "/home/team/shared/admin/review-log.jsonl";
+const COST_LOG_PATH = "/home/team/shared/costs/scan-costs.jsonl";
+
+interface CustomerData {
+  id: string;
+  name: string;
+  plan: string;
+  mrr: number;
+  sitesMonitored: number;
+  status: string;
+  lastScan: string | null;
+}
+
+interface ReviewEntry {
+  id: string;
+  site: string;
+  issueType: string;
+  severity: string;
+  timestamp: string;
+  reviewed: boolean;
+  isFalsePositive: boolean | null;
+}
+
+interface ScanCostEntry {
+  url: string;
+  label: string;
+  customerId?: string;
+  timestamp: string;
+  computeSeconds: number;
+  pagesCrawled: number;
+  browserLaunches: number;
+  status: string;
+}
+
+const CUSTOMER_REVENUE: Record<string, number> = {
+  "acme-agency": 299,
+  "beta-marketing": 99,
+  "gamma-digital": 299,
+  "delta-media": 599,
+  "epsilon-creative": 299,
+};
+
+function readJsonFile<T>(filePath: string, fallback: T): T {
+  try {
+    if (!fs.existsSync(filePath)) return fallback;
+    return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  } catch { return fallback; }
+}
+
+function readJsonLines<T>(filePath: string): T[] {
+  try {
+    if (!fs.existsSync(filePath)) return [];
+    const raw = fs.readFileSync(filePath, "utf-8");
+    return raw.split("\n").filter(line => line.trim()).map(line => {
+      try { return JSON.parse(line) as T; } catch { return null; }
+    }).filter(Boolean) as T[];
+  } catch { return []; }
+}
+
+function appendJsonLineAdmin(filePath: string, obj: Record<string, unknown>) {
+  try {
+    ensureDir(path.dirname(filePath));
+    fs.appendFileSync(filePath, JSON.stringify(obj) + "\n");
+  } catch (err) {
+    console.error("[api] Failed to write review log:", err);
+  }
+}
+
+async function handleAdminDashboard(): Promise<Response> {
+  // 1. Customers
+  const customers: CustomerData[] = readJsonFile<CustomerData[]>(ADMIN_CUSTOMERS_PATH, []);
+
+  // 2. Scans — last 24 hours
+  const now = Date.now();
+  const since24h = new Date(now - 24 * 3600000).toISOString();
+  const scanEntries = readJsonLines<ScanCostEntry>(COST_LOG_PATH);
+  const recentScans = scanEntries.filter(e => e.timestamp >= since24h);
+  const scansSummary = {
+    total: recentScans.length,
+    passed: recentScans.filter(e => e.status === "success").length,
+    failed: recentScans.filter(e => e.status === "failed").length,
+    pending: recentScans.filter(e => e.status === "capped").length,
+  };
+
+  // 3. Findings awaiting review
+  const reviewEntries = readJsonLines<ReviewEntry>(ADMIN_REVIEW_LOG_PATH);
+  const findings = reviewEntries
+    .filter(e => !e.reviewed && (e.severity === "critical" || e.severity === "high"))
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  // 4. False positive rate (last 30 days)
+  const since30d = new Date(now - 30 * 86400000).toISOString();
+  const recentReviews = reviewEntries.filter(e => e.timestamp >= since30d && e.reviewed);
+  const totalAlerts = recentReviews.length;
+  const falsePositives = recentReviews.filter(e => e.isFalsePositive === true).length;
+  const fpRate = totalAlerts > 0 ? Math.round((falsePositives / totalAlerts) * 1000) / 10 : 0;
+
+  // 5. Cost vs revenue per customer
+  const costPerScan = 0.05;
+  const thisMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  const monthlyScans = scanEntries.filter(e => e.timestamp.startsWith(thisMonth));
+
+  const costRevenue: Record<string, { customerId: string; customerName: string; mrr: number; monthlyScanCost: number; costRevenuePct: number }> = {};
+  for (const c of customers) {
+    const customerScans = monthlyScans.filter(e => e.customerId === c.id);
+    const monthlyScanCost = customerScans.length * costPerScan;
+    costRevenue[c.id] = {
+      customerId: c.id,
+      customerName: c.name,
+      mrr: c.mrr,
+      monthlyScanCost: Math.round(monthlyScanCost * 100) / 100,
+      costRevenuePct: c.mrr > 0 ? Math.round((monthlyScanCost / c.mrr) * 1000) / 10 : 0,
+    };
+  }
+
+  return json({
+    customers,
+    scans: scansSummary,
+    findings,
+    fpRate: { totalAlerts, falsePositives, rate: fpRate },
+    costRevenue: Object.values(costRevenue),
+  });
+}
+
+async function handleAdminAcknowledge(findingId: string): Promise<Response> {
+  const reviewEntries = readJsonLines<ReviewEntry>(ADMIN_REVIEW_LOG_PATH);
+  const found = reviewEntries.find(e => e.id === findingId);
+  if (!found) return error("Finding not found", 404);
+
+  // Append acknowledgment as a new line (immutable log)
+  appendJsonLineAdmin(ADMIN_REVIEW_LOG_PATH, {
+    ...found,
+    reviewed: true,
+    isFalsePositive: true,
+    acknowledgedAt: new Date().toISOString(),
+  });
+
+  return json({ ok: true });
+}
+
 // ── Router ──────────────────────────────────────────────────────────
 
 type Handler = (req: Request, agencyId?: string) => Promise<Response>;
@@ -703,6 +846,9 @@ const routes: { method: string; pattern: RegExp; handler: Handler; auth: boolean
   { method: "POST", pattern: /^\/api\/billing\/portal$/, handler: (req, aid) => handleCreatePortal(aid!), auth: true },
   // Health
   { method: "GET", pattern: /^\/api\/health$/, handler: async () => json({ ok: true, time: new Date().toISOString() }), auth: false },
+  // Admin
+  { method: "GET", pattern: /^\/api\/admin\/dashboard$/, handler: async () => handleAdminDashboard(), auth: true },
+  { method: "POST", pattern: /^\/api\/admin\/findings\/([^/]+)\/acknowledge$/, handler: (req) => { const m = new URL(req.url).pathname.match(/^\/api\/admin\/findings\/([^/]+)\/acknowledge$/); return handleAdminAcknowledge(m![1]); }, auth: true },
   // Me (get current user)
   { method: "GET", pattern: /^\/api\/me$/, handler: async (req, aid) => {
     const rows = await db.select().from(agencies).where(eq(agencies.id, aid!)).limit(1);

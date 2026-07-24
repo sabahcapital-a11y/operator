@@ -94,6 +94,10 @@ export const api = {
   createCheckout: (plan: string) =>
     request<{ url: string }>("/billing/create-checkout", { method: "POST", body: { plan } }),
   createPortal: () => request<{ url: string }>("/billing/portal", { method: "POST" }),
+
+  // Admin
+  adminDashboard: () => request<any>("/admin/dashboard"),
+  adminAcknowledge: (findingId: string) => request(`/admin/findings/${findingId}/acknowledge`, { method: "POST" }),
 };
 
 export function setToken(token: string) {

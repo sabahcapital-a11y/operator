@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import SiteDetail from "./pages/SiteDetail";
 import Alerts from "./pages/Alerts";
 import Settings from "./pages/Settings";
+import Admin from "./pages/Admin";
 import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
 import Nav from "./components/Nav";
@@ -73,6 +74,7 @@ export default function App() {
         <Route path="/sites/:id" element={agency ? <SiteDetail /> : <Navigate to="/login" />} />
         <Route path="/alerts" element={agency ? <Alerts /> : <Navigate to="/login" />} />
         <Route path="/settings" element={agency ? <Settings agency={agency} onUpdate={setAgency} /> : <Navigate to="/login" />} />
+        <Route path="/admin" element={agency ? <Admin /> : <Navigate to="/login" />} />
 
         {/* Public blog */}
         <Route path="/blog" element={<Blog />} />
