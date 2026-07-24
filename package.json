@@ -24,6 +24,8 @@
     "batch-scan": "bun run --cwd packages/onboard batch-scan",
     "generate-report": "bun run --cwd packages/onboard generate-report",
     "cost-report": "bun run --cwd packages/onboard cost-report",
+    "retry-dead": "bun run --cwd packages/onboard retry-dead",
+    "backup-db": "bun run --cwd packages/onboard backup-db",
     "publish": "bun run build && bun run serve.ts",
     "go-live": "bash go-live.sh"
   },

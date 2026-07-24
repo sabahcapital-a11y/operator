@@ -17,6 +17,9 @@
 import { parseArgs } from "util";
 import { chromium, type Browser, type Page } from "playwright";
 
+// ── Reliability utilities ──
+import { withRetry, isTransientError, classifyError, logUnhandledError } from "./retry";
+
 // ── Direct detector imports (avoid index.ts which pulls in @leadguard/db) ──
 
 import { detectForms } from "./detectors/form-detector";
@@ -658,16 +661,41 @@ async function main() {
   console.error(`[scan] Max pages: ${maxPages}, timeout: ${scanTimeoutMs / 1000}s`);
 
   try {
-    const result = await withTimeout(
-      scan(url, maxPages),
-      scanTimeoutMs,
-      "Full site scan"
+    const result = await withRetry(
+      () =>
+        withTimeout(
+          scan(url, maxPages),
+          scanTimeoutMs,
+          "Full site scan"
+        ),
+      {
+        maxRetries: 3,
+        baseDelayMs: 1000,
+        onRetry: (attempt, err, delayMs) => {
+          console.error(
+            `[scan] Retry ${attempt}/3 after: ${err.message} (waiting ${delayMs}ms)`
+          );
+        },
+      }
     );
     // Output JSON to stdout
     console.log(JSON.stringify(result, null, 2));
     process.exit(0);
   } catch (err: any) {
-    console.error(`Fatal scan error: ${err.message}`);
+    const errorType = classifyError(err);
+    if (isTransientError(err)) {
+      console.error(
+        `[scan] Transient error after all retries (${errorType}): ${err.message}`
+      );
+    } else {
+      console.error(
+        `[scan] Non-transient error (${errorType}): ${err.message}`
+      );
+    }
+
+    // Log unhandled error
+    logUnhandledError(err, { url, additional: { errorType } });
+
     process.exit(1);
   }
 }

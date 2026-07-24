@@ -85,6 +85,10 @@ function checkScanRateLimit(ip: string): boolean {
 
 const db = getDb();
 
+// ── Server uptime tracking ────────────────────────────────────────────
+
+const serverStartTime = Date.now();
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -814,6 +818,68 @@ async function handleAdminAcknowledge(findingId: string): Promise<Response> {
   return json({ ok: true });
 }
 
+// ── Health ────────────────────────────────────────────────────────────
+
+const SCAN_LOG_HEALTH_PATH = "/home/team/shared/costs/scan-costs.jsonl";
+
+interface HealthResponse {
+  status: "ok" | "degraded";
+  uptime: number;
+  scans24h: number;
+  failures24h: number;
+}
+
+async function handleHealth(): Promise<Response> {
+  const uptime = Math.floor((Date.now() - serverStartTime) / 1000);
+
+  // Count scans and failures in the last 24 hours from scan-costs.jsonl
+  let scans24h = 0;
+  let failures24h = 0;
+  const cutoff = Date.now() - 24 * 3600 * 1000;
+
+  try {
+    if (existsSync(SCAN_LOG_HEALTH_PATH)) {
+      const raw = readFileSync(SCAN_LOG_HEALTH_PATH, "utf-8");
+      const lines = raw.split("\n").filter((line) => line.trim() !== "");
+
+      for (const line of lines) {
+        try {
+          const entry = JSON.parse(line);
+          const ts = new Date(entry.timestamp).getTime();
+          if (isNaN(ts)) continue;
+
+          if (ts >= cutoff) {
+            scans24h++;
+            if (entry.status === "failed") {
+              failures24h++;
+            }
+          }
+        } catch {
+          // Skip unparseable lines
+        }
+      }
+    }
+  } catch {
+    // If we can't read the log, report 0 — degraded state
+  }
+
+  // Determine status: degraded if no successful scan in 24 hours
+  const successfulScans = scans24h - failures24h;
+  const status: "ok" | "degraded" =
+    successfulScans > 0 ? "ok" : "degraded";
+
+  const httpStatus = status === "ok" ? 200 : 503;
+
+  const body: HealthResponse = {
+    status,
+    uptime,
+    scans24h,
+    failures24h,
+  };
+
+  return json(body, httpStatus);
+}
+
 // ── Router ──────────────────────────────────────────────────────────
 
 type Handler = (req: Request, agencyId?: string) => Promise<Response>;
@@ -845,7 +911,7 @@ const routes: { method: string; pattern: RegExp; handler: Handler; auth: boolean
   { method: "POST", pattern: /^\/api\/billing\/create-checkout$/, handler: (req, aid) => handleCreateCheckout(aid!, req), auth: true },
   { method: "POST", pattern: /^\/api\/billing\/portal$/, handler: (req, aid) => handleCreatePortal(aid!), auth: true },
   // Health
-  { method: "GET", pattern: /^\/api\/health$/, handler: async () => json({ ok: true, time: new Date().toISOString() }), auth: false },
+  { method: "GET", pattern: /^\/api\/health$/, handler: async () => handleHealth(), auth: false },
   // Admin
   { method: "GET", pattern: /^\/api\/admin\/dashboard$/, handler: async () => handleAdminDashboard(), auth: true },
   { method: "POST", pattern: /^\/api\/admin\/findings\/([^/]+)\/acknowledge$/, handler: (req) => { const m = new URL(req.url).pathname.match(/^\/api\/admin\/findings\/([^/]+)\/acknowledge$/); return handleAdminAcknowledge(m![1]); }, auth: true },

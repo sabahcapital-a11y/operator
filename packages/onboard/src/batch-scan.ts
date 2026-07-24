@@ -40,6 +40,14 @@ import { readFileSync, writeFileSync, mkdirSync, appendFileSync, existsSync } fr
 import { resolve as resolvePath, dirname, basename, extname } from "path";
 import { spawn } from "child_process";
 
+// ── Reliability utilities ──
+import {
+  isTransientError,
+  classifyError as classifyErrorUtil,
+  logUnhandledError,
+  writeToDeadLetter,
+} from "./retry";
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Types
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -532,6 +540,11 @@ function buildSummary(results: BatchScanResult[]): BatchOutput["summary"] {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 async function main() {
+  let inputPath: string | undefined;
+  let outputPath: string | undefined;
+  let customerId: string | undefined;
+
+  try {
   const { values } = parseArgs({
     args: process.argv.slice(2),
     options: {
@@ -548,8 +561,8 @@ async function main() {
     allowPositionals: false,
   });
 
-  const inputPath = values.input;
-  const outputPath = values.output;
+  inputPath = values.input;
+  outputPath = values.output;
   const format = values.format ?? "json";
 
   // Parse cost control options
@@ -565,7 +578,7 @@ async function main() {
   const dailyLimit = values["daily-limit"]
     ? parseInt(values["daily-limit"], 10)
     : undefined;
-  const customerId = values.customer;
+  customerId = values.customer;
 
   if (!inputPath || !outputPath) {
     console.error("Usage: bun run batch-scan --input <urls.json|csv> --output <results.json|csv> [--format csv|json] [--max-runtime <s>] [--max-pages <n>] [--max-retries <n>] [--daily-limit <n>] [--customer <id>]");
@@ -687,7 +700,11 @@ async function main() {
     let result: BatchScanResult;
     let retriesUsed = 0;
 
-    // ── Attempt scan with retries ────────────────────────────────────────
+    // ── Attempt scan with retries (exponential backoff) ─────────────────
+    const RETRY_BASE_DELAY_MS = 1000;
+    const RETRY_BACKOFF_MULTIPLIER = 2;
+    const MAX_RETRY_DELAY_MS = 30000;
+
     while (true) {
       result = await runScan(site, scanOptions);
 
@@ -697,14 +714,54 @@ async function main() {
         break;
       }
 
-      // If failed but haven't exhausted retries, try again
+      // Check if error is transient
+      const errMsg = result.error ?? "";
+      if (!isTransientError(errMsg)) {
+        // Non-transient — don't retry, write to dead letter immediately
+        console.error(
+          `[batch] ${position}: ${site.label} — NON-TRANSIENT (${result.errorType}): not retrying`
+        );
+        result.retriesUsed = retriesUsed;
+
+        // Write to dead letter queue
+        writeToDeadLetter({
+          url: site.url,
+          label: site.label,
+          error: result.error ?? "unknown",
+          errorType: result.errorType ?? "unknown",
+          timestamp: new Date().toISOString(),
+          retryCount: retriesUsed,
+          customerId,
+        });
+        break;
+      }
+
+      // If failed but haven't exhausted retries, try again with backoff
       if (retriesUsed < maxRetries) {
+        const backoffMs = Math.min(
+          RETRY_BASE_DELAY_MS * Math.pow(RETRY_BACKOFF_MULTIPLIER, retriesUsed),
+          MAX_RETRY_DELAY_MS
+        );
         retriesUsed++;
-        console.error(`[batch] ${position}: ${site.label} — retry ${retriesUsed}/${maxRetries} after: ${result.error}`);
+        console.error(
+          `[batch] ${position}: ${site.label} — retry ${retriesUsed}/${maxRetries} in ${backoffMs}ms after: ${result.error}`
+        );
+        await new Promise((r) => setTimeout(r, backoffMs));
         continue;
       }
 
+      // Exhausted all retries — write to dead letter queue
       result.retriesUsed = retriesUsed;
+
+      writeToDeadLetter({
+        url: site.url,
+        label: site.label,
+        error: result.error ?? "unknown",
+        errorType: result.errorType ?? "unknown",
+        timestamp: new Date().toISOString(),
+        retryCount: retriesUsed,
+        customerId,
+      });
       break;
     }
 
@@ -830,6 +887,17 @@ async function main() {
   console.error("═══════════════════════════════════════════");
 
   process.exit(0);
+  } catch (err: any) {
+    logUnhandledError(err, {
+      additional: {
+        input: values.input,
+        output: values.output,
+        customerId: customerId,
+      },
+    });
+    console.error(`Fatal batch error: ${err.message}`);
+    process.exit(1);
+  }
 }
 
 main();
